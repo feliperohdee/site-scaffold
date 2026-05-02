@@ -1,33 +1,37 @@
 import Head from '@/app/components/head';
 import { CACHE_HEADER, SITE_NAME } from '@/constants';
 
-type SlugProps = {
+const Slug = ({
+	pathParams
+}: {
 	pathParams: Record<string, unknown>;
 	searchParams: URLSearchParams;
-};
-
-const Slug = ({ pathParams }: SlugProps) => {
+}) => {
 	const slug = String(pathParams.slug ?? '');
 
 	return (
-		<main className='mx-auto max-w-2xl px-6 py-16'>
+		<main className='mx-auto max-w-3xl px-6 py-24'>
 			<Head
 				description={`A dynamic page rendered for the slug "${slug}".`}
 				title={`${slug} — ${SITE_NAME}`}
 			/>
 			<a
-				className='text-sm text-blue-600 underline'
+				className='text-sm font-medium underline'
 				href='/'
 			>
 				&larr; home
 			</a>
-			<h1 className='mt-6 text-4xl font-bold tracking-tight'>{slug}</h1>
-			<p className='mt-4 text-gray-600'>
+			<h1 className='tracking-display mt-8 text-6xl leading-[0.95] font-black'>
+				{slug}
+			</h1>
+			<p className='mt-8 max-w-xl text-lg leading-relaxed text-neutral-700'>
 				The worker matched{' '}
-				<code className='rounded bg-gray-100 px-2 py-1'>/:slug</code>{' '}
+				<code className='rounded-sm bg-neutral-100 px-1.5 py-0.5 font-mono text-base'>
+					/:slug
+				</code>{' '}
 				and rendered this page server-side. The HTML is cached in R2
-				keyed by URL, so a refresh should show{' '}
-				<code className='rounded bg-gray-100 px-2 py-1'>
+				keyed by URL — a refresh should show{' '}
+				<code className='rounded-sm bg-neutral-100 px-1.5 py-0.5 font-mono text-base'>
 					{CACHE_HEADER}: HIT
 				</code>
 				.

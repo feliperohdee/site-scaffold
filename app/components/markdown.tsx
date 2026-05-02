@@ -1,0 +1,25 @@
+import { renderMarkdown } from '@/app/libs/articles';
+
+const baseClassName =
+	'prose prose-neutral max-w-none prose-headings:tracking-display prose-headings:font-black prose-h1:text-4xl prose-h2:text-3xl prose-h3:text-2xl prose-p:leading-relaxed prose-p:text-neutral-800 prose-a:text-black prose-a:font-medium prose-strong:font-bold prose-pre:rounded-none prose-pre:bg-black prose-pre:text-white prose-code:rounded-sm prose-code:bg-neutral-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:font-medium prose-code:before:content-none prose-code:after:content-none prose-blockquote:border-l-4 prose-blockquote:border-black prose-blockquote:font-medium prose-blockquote:not-italic prose-th:border prose-th:border-neutral-300 prose-th:bg-neutral-100 prose-th:px-3 prose-th:py-2 prose-td:border prose-td:border-neutral-200 prose-td:px-3 prose-td:py-2';
+
+const Markdown = ({
+	className,
+	content
+}: {
+	className?: string;
+	content: string;
+}) => {
+	const html = renderMarkdown(content);
+
+	return (
+		<div
+			className={
+				className ? `${baseClassName} ${className}` : baseClassName
+			}
+			dangerouslySetInnerHTML={{ __html: html }}
+		/>
+	);
+};
+
+export default Markdown;

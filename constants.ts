@@ -1,11 +1,11 @@
-import kebabCase from 'lodash/kebabCase';
+import _ from 'lodash';
 
 declare const __BUILD_TIME__: string;
 
 // Single source of truth — change this when scaffolding for a new site.
 // Everything below (cache header names, page titles) derives from it.
 const SITE_NAME = 'Site Scaffold';
-const SITE_SLUG = kebabCase(SITE_NAME);
+const SITE_SLUG = _.kebabCase(SITE_NAME);
 
 const DEV = import.meta.env.DEV;
 

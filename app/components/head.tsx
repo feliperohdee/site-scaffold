@@ -1,11 +1,14 @@
-type HeadProps = {
+const Head = ({
+	description,
+	image,
+	title,
+	url
+}: {
 	description?: string;
 	image?: string;
 	title: string;
 	url?: string;
-};
-
-const Head = ({ description, image, title, url }: HeadProps) => {
+}) => {
 	return (
 		<>
 			<title>{title}</title>

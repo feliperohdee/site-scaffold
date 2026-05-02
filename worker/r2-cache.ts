@@ -1,6 +1,6 @@
-import { env, waitUntil } from 'cloudflare:workers';
+import _ from 'lodash';
 import path from 'path';
-import trimStart from 'lodash/trimStart';
+import { env, waitUntil } from 'cloudflare:workers';
 
 import {
 	CACHE_CREATED_AT_HEADER,
@@ -22,7 +22,7 @@ class R2Cache {
 		parsed.searchParams.sort();
 
 		return (
-			trimStart(
+			_.trimStart(
 				path.join(this.prefix, CACHE_VERSION, parsed.pathname),
 				'/'
 			) + parsed.search

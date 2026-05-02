@@ -2,10 +2,6 @@ import { ReactNode } from 'react';
 
 import { DEV } from '@/constants';
 
-type DocumentProps = {
-	children: ReactNode;
-};
-
 const clientEntry = DEV ? '/app/index.tsx' : '/assets/client.js';
 const cssHref = DEV ? '/app/styles/index.css' : '/assets/client.css';
 
@@ -17,7 +13,7 @@ window.$RefreshSig$ = () => (type) => type;
 window.__vite_plugin_react_preamble_installed__ = true;
 `.trim();
 
-const Document = ({ children }: DocumentProps) => {
+const Document = ({ children }: { children: ReactNode }) => {
 	return (
 		<html lang='en'>
 			<head>
@@ -25,6 +21,19 @@ const Document = ({ children }: DocumentProps) => {
 				<meta
 					content='width=device-width, initial-scale=1.0'
 					name='viewport'
+				/>
+				<link
+					href='https://fonts.googleapis.com'
+					rel='preconnect'
+				/>
+				<link
+					crossOrigin='anonymous'
+					href='https://fonts.gstatic.com'
+					rel='preconnect'
+				/>
+				<link
+					href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&display=swap'
+					rel='stylesheet'
 				/>
 				{DEV && (
 					<script

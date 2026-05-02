@@ -25,7 +25,8 @@ GET /foo  ──►  Worker
 - **React 19** — `renderToReadableStream` for streaming SSR, `hydrateRoot` for full-document hydration, native `<title>`/`<meta>` hoisting (no helmet lib)
 - **`use-request-utils/router`** — pure path-matching engine (no browser APIs, no React) shared by the worker and the client
 - **R2** — page cache, keyed by full URL, versioned by build timestamp
-- **Tailwind CSS v4** — single `@import 'tailwindcss';`, no shadcn, no theme tokens
+- **Tailwind CSS v4** + `@tailwindcss/typography` — Inter font, custom `--tracking-display` token, bold-headline minimalist base
+- **`marked`** — markdown → HTML for the article system
 - **Vitest** with `@cloudflare/vitest-pool-workers` — runs tests against a real workerd runtime
 
 No SPA routing. No client-side navigation. No `popstate`. No state library.
@@ -39,7 +40,7 @@ yarn install
 yarn dev          # vite dev server on port 5174
 yarn build        # production build
 yarn deploy       # build + wrangler deploy
-yarn test         # 26 tests, vitest in workerd pool
+yarn test         # 49 tests, vitest in workerd pool
 yarn check-types  # tsc --noEmit
 yarn lint         # prettier + eslint
 ```
@@ -54,17 +55,17 @@ Single source of truth for branding:
 
 ```ts
 // constants.ts
-const SITE_NAME = 'Site Scaffold';   // ← change this
+const SITE_NAME = 'Site Scaffold'; // ← change this
 ```
 
 Everything derives from it via `lodash/kebabCase`:
 
-| Constant | Derived value |
-|---|---|
-| `SITE_NAME` | `'Site Scaffold'` |
-| `CACHE_HEADER` | `'x-site-scaffold-cache'` |
+| Constant                  | Derived value                        |
+| ------------------------- | ------------------------------------ |
+| `SITE_NAME`               | `'Site Scaffold'`                    |
+| `CACHE_HEADER`            | `'x-site-scaffold-cache'`            |
 | `CACHE_CREATED_AT_HEADER` | `'x-site-scaffold-cache-created-at'` |
-| Page titles | `'Home — Site Scaffold'`, etc. |
+| Page titles               | `'Home — Site Scaffold'`, etc.       |
 
 Two more places to update by hand (declarative config — can't import from TS):
 
@@ -90,13 +91,23 @@ Two more places to update by hand (declarative config — can't import from TS):
 ```
 .
 ├── app/
-│   ├── components/head.tsx       SEO wrapper using React 19 metadata hoisting
+│   ├── components/
+│   │   ├── article-card.tsx      list item used by /articles
+│   │   ├── head.tsx              SEO wrapper using React 19 metadata hoisting
+│   │   └── markdown.tsx          <Markdown content={...} /> — reusable prose renderer
+│   ├── content/
+│   │   └── articles/             *.md — auto-discovered articles
+│   ├── libs/
+│   │   ├── articles.ts           glob discovery + frontmatter + excerpt + reading time
+│   │   └── articles.spec.ts      23 tests
 │   ├── pages/
+│   │   ├── article.tsx           /articles/:slug
+│   │   ├── articles.tsx          /articles index
 │   │   ├── home.tsx              / — interactive counter (hydration proof)
-│   │   ├── slug.tsx              /:slug — pulls slug from pathParams
-│   │   └── not-found.tsx         catch-all
-│   ├── styles/index.css          @import 'tailwindcss';
-│   ├── document.tsx              <html>/<head>/<body> root, dev refresh preamble
+│   │   ├── not-found.tsx         catch-all
+│   │   └── slug.tsx              /:slug — pulls slug from pathParams
+│   ├── styles/index.css          @import 'tailwindcss'; @plugin '@tailwindcss/typography'; @theme tokens
+│   ├── document.tsx              <html>/<head>/<body> root, Inter font links, dev refresh preamble
 │   ├── index.tsx                 client entry — hydrateRoot(document, ...)
 │   └── routes.ts                 shared matcher (worker + client)
 ├── worker/
@@ -115,6 +126,29 @@ Two more places to update by hand (declarative config — can't import from TS):
 
 ---
 
+## Articles
+
+Drop a `.md` file into `app/content/articles/` and it shows up at `/articles` and `/articles/<filename>`. No registration. Powered by Vite's `import.meta.glob('../content/articles/*.md', { query: '?raw', eager: true })` — articles are bundled at build time, so it works inside the Cloudflare Workers runtime with zero filesystem access.
+
+```markdown
+---
+title: Hello, World
+date: 2026-05-02
+excerpt: Optional — auto-generated from the body when omitted.
+tags: [meta, writing]
+---
+
+# Hello, World
+
+Body in regular markdown. Headings, lists, code blocks, tables, links, blockquotes — all styled by `@tailwindcss/typography`.
+```
+
+`app/libs/articles.ts` exposes `getArticles()`, `getArticleBySlug(slug)`, and `renderMarkdown(content)`. Each article carries `{ slug, title, date, excerpt, tags, readingTime, content }`. The frontmatter parser is a tiny inline YAML-ish reader (no `gray-matter` / Buffer dep).
+
+`<Markdown content={...} className?={...} />` is the reusable renderer — drop it on any page that needs to display markdown, not just articles.
+
+---
+
 ## Design notes
 
 ### Server is the source of truth
@@ -126,6 +160,7 @@ Links are plain `<a href>`. Clicks trigger full browser navigation, the worker S
 ### Cache key & invalidation
 
 R2 cache key:
+
 ```
 pages/{CACHE_VERSION}/{pathname}{?sorted-query}
 ```
@@ -181,6 +216,16 @@ The bootstrap script is rendered by `<Document>` itself (not via React's `bootst
 ## Tests
 
 ```
+app/libs/articles.spec.ts (23 tests)
+  describe('buildExcerpt')        — override, short body, ellipsis truncation
+  describe('computeReadingTime')  — 1-min minimum, 200wpm rounding
+  describe('getArticleBySlug')    — match + null on miss
+  describe('getArticles')         — discovery, parsed metadata, date desc sort
+  describe('parseFrontmatter')    — string/quoted/array values, malformed lines
+  describe('renderMarkdown')      — HTML output, empty input
+  describe('slugFromPath')        — directory + extension stripping
+  describe('stripMarkdown')       — fences, images/links, headings/lists/emphasis
+
 worker/r2-cache.spec.ts (12 tests)
   describe('key')          — prefix, sorting, leading-slash trim, encoding
   describe('match')        — R2 hit, volatile hit, double miss
