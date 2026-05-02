@@ -1,3 +1,5 @@
+import ContextStorage from '@/worker/context-storage';
+import context from '@/worker/context';
 import renderHtml from '@/worker/render';
 
 const handler = {
@@ -6,13 +8,15 @@ const handler = {
 			return new Response('Method not allowed', { status: 405 });
 		}
 
-		try {
-			return await renderHtml(req);
-		} catch (err) {
-			console.error('Worker error:', err);
+		return context.run(new ContextStorage({ request: req }), async () => {
+			try {
+				return await renderHtml(req);
+			} catch (err) {
+				console.error('Worker error:', err);
 
-			return new Response('Internal server error', { status: 500 });
-		}
+				return new Response('Internal server error', { status: 500 });
+			}
+		});
 	}
 };
 

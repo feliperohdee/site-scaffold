@@ -1,7 +1,9 @@
 import { ReactNode } from 'react';
 
-import safeJsonStringify from '@/app/libs/safe-json';
+import safeJsonStringify from '@/libs/safe-json';
 import { DEV } from '@/constants';
+
+import type { Route } from '@/libs/router';
 
 const clientEntry = DEV ? '/app/index.tsx' : '/assets/client.js';
 const cssHref = DEV ? '/app/styles/index.css' : '/assets/client.css';
@@ -16,10 +18,10 @@ window.__vite_plugin_react_preamble_installed__ = true;
 
 const Document = ({
 	children,
-	data
+	hydration
 }: {
 	children: ReactNode;
-	data: unknown;
+	hydration: Route.Hydration;
 }) => {
 	return (
 		<html lang='en'>
@@ -59,7 +61,7 @@ const Document = ({
 				<div id='root'>{children}</div>
 				<script
 					dangerouslySetInnerHTML={{
-						__html: safeJsonStringify(data)
+						__html: safeJsonStringify(hydration)
 					}}
 					id='__data'
 					type='application/json'

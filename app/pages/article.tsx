@@ -6,7 +6,7 @@ import NotFound from '@/app/pages/not-found';
 import { SITE_NAME } from '@/constants';
 
 import type { Article as ArticleType } from '@/app/libs/articles';
-import type { Route } from '@/app/libs/router';
+import type { Route } from '@/libs/router';
 
 const isArticle = (value: unknown): value is ArticleType => {
 	return (
@@ -45,7 +45,7 @@ const Article = ({ data }: Route.PageProps) => {
 				</h1>
 				{_.size(data.tags) > 0 && (
 					<ul className='mt-6 flex flex-wrap gap-2'>
-						{data.tags.map(tag => {
+						{_.map(data.tags, tag => {
 							return (
 								<li
 									className='bg-neutral-100 px-2 py-0.5 text-xs font-bold tracking-wide text-neutral-700 uppercase'

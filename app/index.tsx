@@ -1,38 +1,49 @@
 import '@/app/styles/index.css';
 
-import { hydrateRoot } from 'react-dom/client';
 import { StrictMode } from 'react';
+import { hydrateRoot } from 'react-dom/client';
 
 import Document from '@/app/document';
-import matchRoute from '@/app/routes';
+import pages from '@/libs/pages';
 
-const readData = (): unknown => {
+import type { Route } from '@/libs/router';
+
+const emptyHydration: Route.Hydration = {
+	data: null,
+	page: 'not-found',
+	pathParams: {},
+	searchParams: ''
+};
+
+const readHydration = (): Route.Hydration => {
 	const el = document.getElementById('__data');
 
 	if (!el || !el.textContent) {
-		return null;
+		return emptyHydration;
 	}
 
 	try {
-		return JSON.parse(el.textContent);
+		const hydration: Route.Hydration = JSON.parse(el.textContent);
+
+		return hydration;
 	} catch {
-		return null;
+		return emptyHydration;
 	}
 };
 
 (() => {
-	const url = new URL(window.location.href);
-	const { Component, pathParams } = matchRoute(url.pathname);
-	const data = readData();
+	const hydration = readHydration();
+	const Component = pages[hydration.page] ?? pages['not-found'];
+	const searchParams = new URLSearchParams(hydration.searchParams);
 
 	hydrateRoot(
 		document,
 		<StrictMode>
-			<Document data={data}>
+			<Document hydration={hydration}>
 				<Component
-					data={data}
-					pathParams={pathParams}
-					searchParams={url.searchParams}
+					data={hydration.data}
+					pathParams={hydration.pathParams}
+					searchParams={searchParams}
 				/>
 			</Document>
 		</StrictMode>

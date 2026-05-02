@@ -1,10 +1,13 @@
 import { renderToReadableStream } from 'react-dom/server';
 import { waitUntil } from 'cloudflare:workers';
 
-import { CACHE_ENABLED } from '@/constants';
 import Document from '@/app/document';
-import matchRoute from '@/app/routes';
 import R2Cache from '@/worker/r2-cache';
+import context from '@/worker/context';
+import matchRoute from '@/worker/routes';
+import { CACHE_ENABLED } from '@/constants';
+
+import type { Route } from '@/libs/router';
 
 const r2cache = new R2Cache({ prefix: 'pages' });
 
@@ -23,16 +26,19 @@ const renderStream = async (
 	const url = new URL(request.url);
 	const route = matchRoute(url.pathname);
 
-	const data = route.loader
-		? await route.loader({
-				pathParams: route.pathParams,
-				request,
-				searchParams: url.searchParams
-			})
-		: null;
+	context.store.pathParams = route.pathParams;
+	context.store.searchParams = url.searchParams;
+
+	const data = route.loader ? await route.loader() : null;
+	const hydration: Route.Hydration = {
+		data,
+		page: route.page,
+		pathParams: route.pathParams,
+		searchParams: url.searchParams.toString()
+	};
 
 	const stream = await renderToReadableStream(
-		<Document data={data}>
+		<Document hydration={hydration}>
 			<route.Component
 				data={data}
 				pathParams={route.pathParams}

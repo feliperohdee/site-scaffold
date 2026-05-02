@@ -8,7 +8,9 @@ import {
 	vi
 } from 'vitest';
 
+import ContextStorage from '@/worker/context-storage';
 import R2Cache from '@/worker/r2-cache';
+import context from '@/worker/context';
 import renderHtml, { renderStream, renderWithCache } from '@/worker/render';
 import { CACHE_HEADER, SITE_NAME } from '@/constants';
 
@@ -22,12 +24,22 @@ const buildRequest = (url: string): Request => {
 	return new Request(url);
 };
 
+const inContext = <T>(
+	req: Request,
+	fn: (req: Request) => Promise<T>
+): Promise<T> => {
+	return context.run(new ContextStorage({ request: req }), () => {
+		return fn(req);
+	});
+};
+
 describe('@/worker/render', () => {
 	describe('renderStream', () => {
 		describe('headers / shell', () => {
 			it('should produce HTML starting with <!DOCTYPE html>', async () => {
-				const stream = await renderStream(
-					buildRequest('https://example.com/')
+				const stream = await inContext(
+					buildRequest('https://example.com/'),
+					renderStream
 				);
 				const body = await drain(stream);
 
@@ -35,8 +47,9 @@ describe('@/worker/render', () => {
 			});
 
 			it('should include the root mount node', async () => {
-				const stream = await renderStream(
-					buildRequest('https://example.com/')
+				const stream = await inContext(
+					buildRequest('https://example.com/'),
+					renderStream
 				);
 				const body = await drain(stream);
 
@@ -44,8 +57,9 @@ describe('@/worker/render', () => {
 			});
 
 			it('should include the bootstrap module script tag pointing at the client entry', async () => {
-				const stream = await renderStream(
-					buildRequest('https://example.com/')
+				const stream = await inContext(
+					buildRequest('https://example.com/'),
+					renderStream
 				);
 				const body = await drain(stream);
 
@@ -58,8 +72,9 @@ describe('@/worker/render', () => {
 			});
 
 			it('should include the React Refresh preamble script in dev', async () => {
-				const stream = await renderStream(
-					buildRequest('https://example.com/')
+				const stream = await inContext(
+					buildRequest('https://example.com/'),
+					renderStream
 				);
 				const body = await drain(stream);
 
@@ -69,8 +84,9 @@ describe('@/worker/render', () => {
 			});
 
 			it('should embed a __data application/json script', async () => {
-				const stream = await renderStream(
-					buildRequest('https://example.com/')
+				const stream = await inContext(
+					buildRequest('https://example.com/'),
+					renderStream
 				);
 				const body = await drain(stream);
 
@@ -82,8 +98,9 @@ describe('@/worker/render', () => {
 
 		describe('routing', () => {
 			it('should render the home page for /', async () => {
-				const stream = await renderStream(
-					buildRequest('https://example.com/')
+				const stream = await inContext(
+					buildRequest('https://example.com/'),
+					renderStream
 				);
 				const body = await drain(stream);
 
@@ -93,8 +110,9 @@ describe('@/worker/render', () => {
 			});
 
 			it('should render the slug page for /:slug with the slug as pathParam', async () => {
-				const stream = await renderStream(
-					buildRequest('https://example.com/hello-world')
+				const stream = await inContext(
+					buildRequest('https://example.com/hello-world'),
+					renderStream
 				);
 				const body = await drain(stream);
 
@@ -105,8 +123,9 @@ describe('@/worker/render', () => {
 			});
 
 			it('should render the not-found page for unmatched routes', async () => {
-				const stream = await renderStream(
-					buildRequest('https://example.com/some/missing/path')
+				const stream = await inContext(
+					buildRequest('https://example.com/some/missing/path'),
+					renderStream
 				);
 				const body = await drain(stream);
 
@@ -117,21 +136,11 @@ describe('@/worker/render', () => {
 			});
 		});
 
-		describe('loader', () => {
-			it('should embed null in __data for routes without a loader', async () => {
-				const stream = await renderStream(
-					buildRequest('https://example.com/')
-				);
-				const body = await drain(stream);
-
-				expect(body).toMatch(
-					/<script[^>]*id="__data"[^>]*>null<\/script>/
-				);
-			});
-
-			it('should embed loader output in __data for routes with a loader', async () => {
-				const stream = await renderStream(
-					buildRequest('https://example.com/articles/non-existent')
+		describe('hydration meta', () => {
+			it('should embed { data: null, page, pathParams, searchParams } for routes without a loader', async () => {
+				const stream = await inContext(
+					buildRequest('https://example.com/'),
+					renderStream
 				);
 				const body = await drain(stream);
 
@@ -140,14 +149,77 @@ describe('@/worker/render', () => {
 				);
 
 				expect(match).not.toEqual(null);
-				expect(JSON.parse(match![1])).toEqual(null);
+				expect(JSON.parse(match![1])).toEqual({
+					data: null,
+					page: 'home',
+					pathParams: {},
+					searchParams: ''
+				});
+			});
+
+			it('should embed loader output as data and propagate page + pathParams for parametrized routes', async () => {
+				const stream = await inContext(
+					buildRequest('https://example.com/articles/non-existent'),
+					renderStream
+				);
+				const body = await drain(stream);
+
+				const match = body.match(
+					/<script[^>]*id="__data"[^>]*type="application\/json"[^>]*>([\s\S]*?)<\/script>/
+				);
+
+				expect(match).not.toEqual(null);
+				expect(JSON.parse(match![1])).toEqual({
+					data: null,
+					page: 'article',
+					pathParams: { slug: 'non-existent' },
+					searchParams: ''
+				});
+			});
+
+			it('should serialize searchParams into the hydration meta', async () => {
+				const stream = await inContext(
+					buildRequest('https://example.com/?a=1&b=hello+world'),
+					renderStream
+				);
+				const body = await drain(stream);
+
+				const match = body.match(
+					/<script[^>]*id="__data"[^>]*type="application\/json"[^>]*>([\s\S]*?)<\/script>/
+				);
+
+				expect(match).not.toEqual(null);
+				expect(JSON.parse(match![1]).searchParams).toEqual(
+					'a=1&b=hello+world'
+				);
+			});
+
+			it('should emit page = "not-found" for unmatched routes', async () => {
+				const stream = await inContext(
+					buildRequest('https://example.com/some/missing/path'),
+					renderStream
+				);
+				const body = await drain(stream);
+
+				const match = body.match(
+					/<script[^>]*id="__data"[^>]*type="application\/json"[^>]*>([\s\S]*?)<\/script>/
+				);
+
+				expect(match).not.toEqual(null);
+				expect(JSON.parse(match![1])).toEqual({
+					data: null,
+					page: 'not-found',
+					pathParams: {},
+					searchParams: ''
+				});
 			});
 		});
 
 		describe('metadata hoisting', () => {
 			it('should hoist <title> into <head>', async () => {
-				const stream = await renderStream(
-					buildRequest('https://example.com/')
+				const stream = await inContext(
+					buildRequest('https://example.com/'),
+					renderStream
 				);
 				const body = await drain(stream);
 
@@ -186,9 +258,11 @@ describe('@/worker/render', () => {
 
 				matchSpy.mockResolvedValueOnce(cachedResponse);
 
-				const response = await renderWithCache(
+				const response = await inContext(
 					buildRequest('https://example.com/foo'),
-					cache
+					req => {
+						return renderWithCache(req, cache);
+					}
 				);
 				const body = await response.text();
 
@@ -200,9 +274,11 @@ describe('@/worker/render', () => {
 			it('should look up the cache by the full URL including query string', async () => {
 				matchSpy.mockResolvedValueOnce(null);
 
-				await renderWithCache(
+				await inContext(
 					buildRequest('https://example.com/foo?q=1'),
-					cache
+					req => {
+						return renderWithCache(req, cache);
+					}
 				);
 
 				expect(matchSpy).toHaveBeenCalledWith(
@@ -217,9 +293,11 @@ describe('@/worker/render', () => {
 			});
 
 			it('should respond with content-type text/html; charset=utf-8', async () => {
-				const response = await renderWithCache(
+				const response = await inContext(
 					buildRequest('https://example.com/'),
-					cache
+					req => {
+						return renderWithCache(req, cache);
+					}
 				);
 
 				expect(response.headers.get('content-type')).toEqual(
@@ -228,9 +306,11 @@ describe('@/worker/render', () => {
 			});
 
 			it('should respond with cache-control public, max-age=300', async () => {
-				const response = await renderWithCache(
+				const response = await inContext(
 					buildRequest('https://example.com/'),
-					cache
+					req => {
+						return renderWithCache(req, cache);
+					}
 				);
 
 				expect(response.headers.get('cache-control')).toEqual(
@@ -239,9 +319,11 @@ describe('@/worker/render', () => {
 			});
 
 			it('should write the rendered html to the cache via waitUntil', async () => {
-				const response = await renderWithCache(
+				const response = await inContext(
 					buildRequest('https://example.com/foo'),
-					cache
+					req => {
+						return renderWithCache(req, cache);
+					}
 				);
 
 				// drain client stream so the tee'd cache stream can also drain
@@ -270,8 +352,9 @@ describe('@/worker/render', () => {
 			const putSpy = vi.spyOn(R2Cache.prototype, 'put');
 
 			try {
-				const response = await renderHtml(
-					buildRequest('https://example.com/')
+				const response = await inContext(
+					buildRequest('https://example.com/'),
+					renderHtml
 				);
 				const body = await response.text();
 

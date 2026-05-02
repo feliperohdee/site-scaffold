@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import safeJsonStringify from '@/app/libs/safe-json';
+import safeJsonStringify from '@/libs/safe-json';
 
-describe('@/app/libs/safe-json', () => {
+describe('@/libs/safe-json', () => {
 	describe('safeJsonStringify', () => {
 		it('should serialize a plain object', () => {
 			const result = safeJsonStringify({ a: 1, b: 'two' });
