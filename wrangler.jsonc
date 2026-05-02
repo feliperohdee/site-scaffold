@@ -1,0 +1,22 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"assets": {
+		"binding": "ASSETS",
+		"directory": "./public",
+		"html_handling": "none",
+		"not_found_handling": "none"
+	},
+	"compatibility_date": "2026-03-10",
+	"compatibility_flags": ["nodejs_compat"],
+	"main": "worker/index.ts",
+	"name": "embed-img-site",
+	"observability": {
+		"enabled": true
+	},
+	"r2_buckets": [
+		{
+			"binding": "CACHE",
+			"bucket_name": "embed-img-site-cache"
+		}
+	]
+}
