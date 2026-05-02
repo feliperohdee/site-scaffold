@@ -1,4 +1,5 @@
 import Head from '@/app/components/head';
+import { CACHE_HEADER, SITE_NAME } from '@/constants';
 
 type SlugProps = {
 	pathParams: Record<string, unknown>;
@@ -12,7 +13,7 @@ const Slug = ({ pathParams }: SlugProps) => {
 		<main className='mx-auto max-w-2xl px-6 py-16'>
 			<Head
 				description={`A dynamic page rendered for the slug "${slug}".`}
-				title={`${slug} — embed-img-site`}
+				title={`${slug} — ${SITE_NAME}`}
 			/>
 			<a
 				className='text-sm text-blue-600 underline'
@@ -27,7 +28,7 @@ const Slug = ({ pathParams }: SlugProps) => {
 				and rendered this page server-side. The HTML is cached in R2
 				keyed by URL, so a refresh should show{' '}
 				<code className='rounded bg-gray-100 px-2 py-1'>
-					x-r2-cache: HIT
+					{CACHE_HEADER}: HIT
 				</code>
 				.
 			</p>

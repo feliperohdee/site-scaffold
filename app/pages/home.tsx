@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import Head from '@/app/components/head';
+import { SITE_NAME } from '@/constants';
 
 const Home = () => {
 	const [count, setCount] = useState(0);
@@ -13,11 +14,9 @@ const Home = () => {
 		<main className='mx-auto max-w-2xl px-6 py-16'>
 			<Head
 				description='A streaming SSR + hydrate starter on Cloudflare Workers.'
-				title='embed-img-site — home'
+				title={`${SITE_NAME} — home`}
 			/>
-			<h1 className='text-4xl font-bold tracking-tight'>
-				embed-img-site
-			</h1>
+			<h1 className='text-4xl font-bold tracking-tight'>{SITE_NAME}</h1>
 			<p className='mt-4 text-gray-600'>
 				Server-rendered, R2-cached, hydrated on the client. Click the
 				button — it&rsquo;s the only client-side state on this page.

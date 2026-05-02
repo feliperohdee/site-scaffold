@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 import { env } from 'cloudflare:workers';
 
 import R2Cache from '@/worker/r2-cache';
-import { CACHE_VERSION } from '@/constants';
+import {
+	CACHE_CREATED_AT_HEADER,
+	CACHE_HEADER,
+	CACHE_VERSION
+} from '@/constants';
 
 const SAMPLE_URL = 'https://example.com/img/transform?src=img.jpg';
 const SAMPLE_KEY = `embed-test/${CACHE_VERSION}/img/transform?src=img.jpg`;
@@ -66,7 +70,9 @@ describe('@/worker/r2-cache', () => {
 		it('should strip leading slashes from pathname', () => {
 			const result = cache.key('https://example.com/img/nested/path.jpg');
 
-			expect(result).toEqual(`embed-test/${CACHE_VERSION}/img/nested/path.jpg`);
+			expect(result).toEqual(
+				`embed-test/${CACHE_VERSION}/img/nested/path.jpg`
+			);
 		});
 	});
 
@@ -80,9 +86,9 @@ describe('@/worker/r2-cache', () => {
 			const body = new TextDecoder().decode(await result!.arrayBuffer());
 
 			expect(body).toEqual('r2-cached');
-			expect(result!.headers.get('x-r2-cache')).toEqual('HIT');
+			expect(result!.headers.get(CACHE_HEADER)).toEqual('HIT');
 			expect(result!.headers.get('content-type')).toEqual('image/png');
-			expect(result!.headers.get('x-r2-cache-created-at')).toMatch(
+			expect(result!.headers.get(CACHE_CREATED_AT_HEADER)).toMatch(
 				/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/
 			);
 			expect(mockVolatilePut).toHaveBeenCalledWith(
@@ -97,8 +103,8 @@ describe('@/worker/r2-cache', () => {
 			mockVolatileMatch.mockResolvedValue(
 				new Response('volatile-cached', {
 					headers: {
-						'content-type': 'image/png',
-						'x-r2-cache-created-at': createdAt
+						[CACHE_CREATED_AT_HEADER]: createdAt,
+						'content-type': 'image/png'
 					}
 				})
 			);
@@ -107,8 +113,10 @@ describe('@/worker/r2-cache', () => {
 			const body = new TextDecoder().decode(await result!.arrayBuffer());
 
 			expect(body).toEqual('volatile-cached');
-			expect(result!.headers.get('x-r2-cache')).toEqual('HIT');
-			expect(result!.headers.get('x-r2-cache-created-at')).toEqual(createdAt);
+			expect(result!.headers.get(CACHE_HEADER)).toEqual('HIT');
+			expect(result!.headers.get(CACHE_CREATED_AT_HEADER)).toEqual(
+				createdAt
+			);
 			expect(vi.mocked(env.CACHE.get)).not.toHaveBeenCalled();
 		});
 
@@ -170,9 +178,9 @@ describe('@/worker/r2-cache', () => {
 			);
 
 			const volatileResponse: Response = mockVolatilePut.mock.calls[0][1];
-			expect(volatileResponse.headers.get('x-r2-cache-created-at')).toMatch(
-				/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/
-			);
+			expect(
+				volatileResponse.headers.get(CACHE_CREATED_AT_HEADER)
+			).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
 
 			const obj = await env.CACHE.get(SAMPLE_KEY);
 			expect(obj).not.toEqual(null);

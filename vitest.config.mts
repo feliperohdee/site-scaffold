@@ -1,6 +1,9 @@
 import { defineWorkersConfig } from '@cloudflare/vitest-pool-workers/config';
 
 export default defineWorkersConfig({
+	define: {
+		__BUILD_TIME__: JSON.stringify('test')
+	},
 	resolve: {
 		alias: {
 			'@': __dirname

@@ -1,8 +1,12 @@
-import _ from 'lodash';
 import { env, waitUntil } from 'cloudflare:workers';
 import path from 'path';
+import trimStart from 'lodash/trimStart';
 
-import { CACHE_VERSION } from '@/constants';
+import {
+	CACHE_CREATED_AT_HEADER,
+	CACHE_HEADER,
+	CACHE_VERSION
+} from '@/constants';
 
 class R2Cache {
 	readonly prefix: string;
@@ -18,7 +22,7 @@ class R2Cache {
 		parsed.searchParams.sort();
 
 		return (
-			_.trimStart(
+			trimStart(
 				path.join(this.prefix, CACHE_VERSION, parsed.pathname),
 				'/'
 			) + parsed.search
@@ -37,7 +41,7 @@ class R2Cache {
 
 			if (volatileHit) {
 				const headers = new Headers(volatileHit.headers);
-				headers.set('x-r2-cache', 'HIT');
+				headers.set(CACHE_HEADER, 'HIT');
 
 				return new Response(volatileHit.body, { headers });
 			}
@@ -51,8 +55,8 @@ class R2Cache {
 
 		const headers = new Headers();
 		obj.writeHttpMetadata(headers);
-		headers.set('x-r2-cache', 'HIT');
-		headers.set('x-r2-cache-created-at', obj.uploaded.toISOString());
+		headers.set(CACHE_HEADER, 'HIT');
+		headers.set(CACHE_CREATED_AT_HEADER, obj.uploaded.toISOString());
 
 		const response = new Response(obj.body, { headers });
 
@@ -85,7 +89,7 @@ class R2Cache {
 		}
 
 		const volatileHeaders = new Headers(response.headers);
-		volatileHeaders.set('x-r2-cache-created-at', new Date().toISOString());
+		volatileHeaders.set(CACHE_CREATED_AT_HEADER, new Date().toISOString());
 
 		const [body1, body2] = response.body
 			? response.body.tee()

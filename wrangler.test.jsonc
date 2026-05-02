@@ -3,11 +3,11 @@
 	"compatibility_date": "2026-03-10",
 	"compatibility_flags": ["nodejs_compat"],
 	"main": "worker/index.ts",
-	"name": "embed-img-site",
+	"name": "site-scaffold",
 	"r2_buckets": [
 		{
 			"binding": "CACHE",
-			"bucket_name": "embed-img-site-cache"
+			"bucket_name": "site-scaffold-cache"
 		}
 	]
 }

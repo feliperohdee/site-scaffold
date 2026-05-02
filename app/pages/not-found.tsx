@@ -1,9 +1,10 @@
 import Head from '@/app/components/head';
+import { SITE_NAME } from '@/constants';
 
 const NotFound = () => {
 	return (
 		<main className='mx-auto max-w-2xl px-6 py-16'>
-			<Head title='Not found — embed-img-site' />
+			<Head title={`Not found — ${SITE_NAME}`} />
 			<h1 className='text-4xl font-bold tracking-tight'>404</h1>
 			<p className='mt-4 text-gray-600'>This page does not exist.</p>
 			<a

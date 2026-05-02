@@ -23,6 +23,9 @@ export default defineConfig(() => {
 				}
 			}
 		},
+		define: {
+			__BUILD_TIME__: JSON.stringify(String(Date.now()))
+		},
 		plugins: [
 			cloudflare({
 				configPath: './wrangler.jsonc'
