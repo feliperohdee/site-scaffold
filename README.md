@@ -7,14 +7,25 @@ Server is the source of truth for routing — every link is a real navigation. T
 ```
 GET /foo  ──►  Worker
                 │
-                ├─ try R2Cache.match(url)
-                │   └─ HIT  ──► stream cached HTML, set x-{slug}-cache: HIT
+                ├─ matchRoute(/foo) → { Component, loader, cache, pathParams }
                 │
-                └─ MISS:
-                    ├─ matchRoute(/foo) → { Component, pathParams }
-                    ├─ stream = renderToReadableStream(<Document><Component /></Document>)
-                    ├─ tee → response body  +  R2Cache.put (waitUntil)
-                    └─ stream HTML → browser  ──►  hydrateRoot(document, ...)
+                ├─ if route.cache !== false:
+                │   └─ R2Cache.match(url)
+                │       └─ HIT  ──► stream cached HTML, set x-{slug}-cache: HIT
+                │
+                └─ MISS (or cache:false):
+                    ├─ data = await loader?.({ pathParams, request, searchParams })
+                    ├─ stream = renderToReadableStream(
+                    │             <Document data={data}>
+                    │               <Component data={data} ... />
+                    │             </Document>)
+                    ├─ tee → response body  +  R2Cache.put (waitUntil, when cacheable)
+                    └─ stream HTML → browser
+                                       │
+                                       ▼
+                                hydrateRoot(document, …)
+                                  ├─ JSON.parse(<script id="__data">…</script>)
+                                  └─ <Component data={data} ... />
 ```
 
 ---
@@ -24,6 +35,7 @@ GET /foo  ──►  Worker
 - **Cloudflare Workers** + `@cloudflare/vite-plugin` — single Vite pipeline builds the worker and the client bundle
 - **React 19** — `renderToReadableStream` for streaming SSR, `hydrateRoot` for full-document hydration, native `<title>`/`<meta>` hoisting (no helmet lib)
 - **`use-request-utils/router`** — pure path-matching engine (no browser APIs, no React) shared by the worker and the client
+- **Loader pattern** — per-route `loader(ctx)` server function for seeding component data from KV / R2 / D1 / external HTTP / per-request headers (auth, cookies); result is JSON-embedded into the HTML and rehydrated on the client without a re-fetch
 - **R2** — page cache, keyed by full URL, versioned by build timestamp
 - **Tailwind CSS v4** + `@tailwindcss/typography` — Inter font, custom `--tracking-display` token, bold-headline minimalist base
 - **`marked`** — markdown → HTML for the article system
@@ -40,7 +52,7 @@ yarn install
 yarn dev          # vite dev server on port 5174
 yarn build        # production build
 yarn deploy       # build + wrangler deploy
-yarn test         # 49 tests, vitest in workerd pool
+yarn test         # run tests
 yarn check-types  # tsc --noEmit
 yarn lint         # prettier + eslint
 ```
@@ -99,7 +111,11 @@ Two more places to update by hand (declarative config — can't import from TS):
 │   │   └── articles/             *.md — auto-discovered articles
 │   ├── libs/
 │   │   ├── articles.ts           glob discovery + frontmatter + excerpt + reading time
-│   │   └── articles.spec.ts      23 tests
+│   │   ├── articles.spec.ts      23 tests
+│   │   ├── router.ts             createRouter + Route namespace (types) — matcher core
+│   │   ├── router.spec.ts        9 tests
+│   │   ├── safe-json.ts          XSS-safe JSON encoder for <script> embedding
+│   │   └── safe-json.spec.ts     6 tests
 │   ├── pages/
 │   │   ├── article.tsx           /articles/:slug
 │   │   ├── articles.tsx          /articles index
@@ -107,13 +123,13 @@ Two more places to update by hand (declarative config — can't import from TS):
 │   │   ├── not-found.tsx         catch-all
 │   │   └── slug.tsx              /:slug — pulls slug from pathParams
 │   ├── styles/index.css          @import 'tailwindcss'; @plugin '@tailwindcss/typography'; @theme tokens
-│   ├── document.tsx              <html>/<head>/<body> root, Inter font links, dev refresh preamble
-│   ├── index.tsx                 client entry — hydrateRoot(document, ...)
-│   └── routes.ts                 shared matcher (worker + client)
+│   ├── document.tsx              <html>/<head>/<body> root, Inter font links, dev refresh preamble, __data script
+│   ├── index.tsx                 client entry — reads __data, hydrateRoot(document, ...)
+│   └── routes.ts                 route registrations (config; logic lives in libs/router.ts)
 ├── worker/
 │   ├── index.ts                  fetch handler (GET/HEAD only)
 │   ├── render.tsx                renderStream + renderWithCache + renderHtml
-│   ├── render.spec.ts            14 tests
+│   ├── render.spec.ts            17 tests
 │   ├── r2-cache.ts               two-layer cache (volatile + R2)
 │   └── r2-cache.spec.ts          12 tests
 ├── constants.ts                  SITE_NAME, CACHE_*, DEV
@@ -149,11 +165,95 @@ Body in regular markdown. Headings, lists, code blocks, tables, links, blockquot
 
 ---
 
+## Server functions / loaders
+
+Each route can declare an async `loader(ctx)` that runs **only on the worker** during SSR. The return value is rendered into the HTML, serialized as JSON into a `<script id="__data" type="application/json">…</script>` block, and read back on hydration so the component renders the same data on the client without a re-fetch.
+
+```ts
+// app/routes.ts — pure config; the matcher itself lives in app/libs/router.ts
+const router = createRouter(NotFoundPage)
+	.add('/', { Component: HomePage })
+	.add('/articles/:slug', {
+		Component: ArticlePage,
+		loader: ({ pathParams }) => {
+			return getArticleBySlug(String(pathParams.slug ?? ''));
+		}
+	});
+
+export default router.match;
+```
+
+The page consumes the result via the `data` prop, narrowing it with a runtime type guard:
+
+```tsx
+// app/pages/article.tsx
+import type { Route } from '@/app/libs/router';
+
+const isArticle = (value: unknown): value is Article => {
+	return _.isObject(value) && 'slug' in value && 'content' in value;
+};
+
+const Article = ({ data }: Route.PageProps) => {
+	if (!isArticle(data)) {
+		return <NotFound />;
+	}
+	return <Markdown content={data.content} />;
+};
+```
+
+### Loader context
+
+```ts
+type LoaderContext = {
+	pathParams: Record<string, unknown>;
+	request: Request; // headers, cookies, auth
+	searchParams: URLSearchParams;
+};
+```
+
+For Cloudflare bindings (`CACHE`, KV, D1, DO) and `waitUntil`, import them directly from `'cloudflare:workers'` — same convention as `worker/r2-cache.ts`. No `env` plumbing through the loader signature.
+
+```ts
+loader: async ({ pathParams }) => {
+	const { env } = await import('cloudflare:workers');
+	return await env.CACHE.get(`page/${pathParams.slug}`);
+};
+```
+
+### Cache opt-out for per-request dynamic routes
+
+Routes that read `request.headers` (auth, cookies, geo, A/B) must not be cached by URL alone. Set `cache: false`:
+
+```ts
+router.add('/me', {
+	Component: MePage,
+	cache: false,
+	loader: ({ request }) => {
+		const session = request.headers.get('cookie');
+		return /* per-user data */;
+	}
+});
+```
+
+`renderWithCache` short-circuits on `cache: false` — the page streams fresh on every hit, never read from / written to R2.
+
+### Safe JSON embedding
+
+`app/libs/safe-json.ts` escapes `<`, `>`, `&`, U+2028, U+2029 before serializing into the HTML — so a loader returning `{ html: '</script><script>alert(1)</script>' }` cannot break out of the data block. The covered values are equivalent to the `htmlEscapeJsonString` set used by Next.js / Remix loaders.
+
+### Limits
+
+- Loader output **must be JSON-serializable** — no `Date`, `Map`, `Set`, functions. Convert to strings/arrays at the loader boundary.
+- Loaders run **before** streaming starts; they're not Suspense-aware. For progressive data, wrap the page in `<Suspense>` and `await` inside an async child instead of using a loader.
+- Mutations / form actions are not part of the loader pattern (read-only by design). Add a separate POST handler in `worker/index.ts` if you need them.
+
+---
+
 ## Design notes
 
 ### Server is the source of truth
 
-The matcher in `app/routes.ts` is imported by both the worker (to pick a component for SSR) and `app/index.tsx` (to pick the same component for `hydrateRoot`). Server and client read the URL from their own native source — `req.url` and `window.location` — and arrive at the same component, so hydration always matches.
+The matcher in `app/routes.ts` is imported by both the worker (to pick a component for SSR) and `app/index.tsx` (to pick the same component for `hydrateRoot`). Server and client read the URL from their own native source — `req.url` and `window.location` — and arrive at the same component, so hydration always matches. The loader runs **only on the worker** — the client never re-runs it; it reads the same data from the embedded `<script id="__data">` so the rendered tree on both sides is byte-identical.
 
 Links are plain `<a href>`. Clicks trigger full browser navigation, the worker SSRs the new page, the client hydrates it. There is no client router, no popstate listener, no link interception.
 
@@ -226,15 +326,27 @@ app/libs/articles.spec.ts (23 tests)
   describe('slugFromPath')        — directory + extension stripping
   describe('stripMarkdown')       — fences, images/links, headings/lists/emphasis
 
+app/libs/router.spec.ts (9 tests)
+  describe('createRouter')
+    describe('add')              — chainable
+    describe('match')            — notFound fallback, cache default + opt-out,
+                                   Component lookup, loader exposure / null,
+                                   pathParams extraction, registration order
+
+app/libs/safe-json.spec.ts (6 tests)
+  describe('safeJsonStringify')  — round-trip, < / > / & escaping, U+2028/2029,
+                                   undefined → null, no </script> bleed
+
 worker/r2-cache.spec.ts (12 tests)
   describe('key')          — prefix, sorting, leading-slash trim, encoding
   describe('match')        — R2 hit, volatile hit, double miss
   describe('put')          — defaults, null body, both layers
   describe('volatile: false') — skip volatile layer
 
-worker/render.spec.ts (14 tests)
+worker/render.spec.ts (17 tests)
   describe('renderStream')      — shell, doctype, root mount, bootstrap script,
-                                  React Refresh preamble, routing, head hoisting
+                                  React Refresh preamble, __data script,
+                                  routing, head hoisting, loader output embedding
   describe('renderWithCache')   — cache hit, cache miss, waitUntil → put
   describe('renderHtml')        — bypasses cache when CACHE_ENABLED=false
 ```

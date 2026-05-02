@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 
+import safeJsonStringify from '@/app/libs/safe-json';
 import { DEV } from '@/constants';
 
 const clientEntry = DEV ? '/app/index.tsx' : '/assets/client.js';
@@ -13,7 +14,13 @@ window.$RefreshSig$ = () => (type) => type;
 window.__vite_plugin_react_preamble_installed__ = true;
 `.trim();
 
-const Document = ({ children }: { children: ReactNode }) => {
+const Document = ({
+	children,
+	data
+}: {
+	children: ReactNode;
+	data: unknown;
+}) => {
 	return (
 		<html lang='en'>
 			<head>
@@ -50,6 +57,13 @@ const Document = ({ children }: { children: ReactNode }) => {
 			</head>
 			<body>
 				<div id='root'>{children}</div>
+				<script
+					dangerouslySetInnerHTML={{
+						__html: safeJsonStringify(data)
+					}}
+					id='__data'
+					type='application/json'
+				/>
 				<script
 					defer
 					src={clientEntry}

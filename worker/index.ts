@@ -6,10 +6,8 @@ const handler = {
 			return new Response('Method not allowed', { status: 405 });
 		}
 
-		const url = new URL(req.url);
-
 		try {
-			return await renderHtml(url);
+			return await renderHtml(req);
 		} catch (err) {
 			console.error('Worker error:', err);
 

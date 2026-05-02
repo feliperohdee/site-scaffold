@@ -18,12 +18,16 @@ const drain = async (stream: ReadableStream<Uint8Array>): Promise<string> => {
 	return text;
 };
 
+const buildRequest = (url: string): Request => {
+	return new Request(url);
+};
+
 describe('@/worker/render', () => {
 	describe('renderStream', () => {
 		describe('headers / shell', () => {
 			it('should produce HTML starting with <!DOCTYPE html>', async () => {
 				const stream = await renderStream(
-					new URL('https://example.com/')
+					buildRequest('https://example.com/')
 				);
 				const body = await drain(stream);
 
@@ -32,7 +36,7 @@ describe('@/worker/render', () => {
 
 			it('should include the root mount node', async () => {
 				const stream = await renderStream(
-					new URL('https://example.com/')
+					buildRequest('https://example.com/')
 				);
 				const body = await drain(stream);
 
@@ -41,7 +45,7 @@ describe('@/worker/render', () => {
 
 			it('should include the bootstrap module script tag pointing at the client entry', async () => {
 				const stream = await renderStream(
-					new URL('https://example.com/')
+					buildRequest('https://example.com/')
 				);
 				const body = await drain(stream);
 
@@ -55,7 +59,7 @@ describe('@/worker/render', () => {
 
 			it('should include the React Refresh preamble script in dev', async () => {
 				const stream = await renderStream(
-					new URL('https://example.com/')
+					buildRequest('https://example.com/')
 				);
 				const body = await drain(stream);
 
@@ -63,12 +67,23 @@ describe('@/worker/render', () => {
 					'__vite_plugin_react_preamble_installed__'
 				);
 			});
+
+			it('should embed a __data application/json script', async () => {
+				const stream = await renderStream(
+					buildRequest('https://example.com/')
+				);
+				const body = await drain(stream);
+
+				expect(body).toMatch(
+					/<script[^>]*id="__data"[^>]*type="application\/json"[^>]*>/
+				);
+			});
 		});
 
 		describe('routing', () => {
 			it('should render the home page for /', async () => {
 				const stream = await renderStream(
-					new URL('https://example.com/')
+					buildRequest('https://example.com/')
 				);
 				const body = await drain(stream);
 
@@ -79,7 +94,7 @@ describe('@/worker/render', () => {
 
 			it('should render the slug page for /:slug with the slug as pathParam', async () => {
 				const stream = await renderStream(
-					new URL('https://example.com/hello-world')
+					buildRequest('https://example.com/hello-world')
 				);
 				const body = await drain(stream);
 
@@ -91,7 +106,7 @@ describe('@/worker/render', () => {
 
 			it('should render the not-found page for unmatched routes', async () => {
 				const stream = await renderStream(
-					new URL('https://example.com/some/missing/path')
+					buildRequest('https://example.com/some/missing/path')
 				);
 				const body = await drain(stream);
 
@@ -102,10 +117,37 @@ describe('@/worker/render', () => {
 			});
 		});
 
+		describe('loader', () => {
+			it('should embed null in __data for routes without a loader', async () => {
+				const stream = await renderStream(
+					buildRequest('https://example.com/')
+				);
+				const body = await drain(stream);
+
+				expect(body).toMatch(
+					/<script[^>]*id="__data"[^>]*>null<\/script>/
+				);
+			});
+
+			it('should embed loader output in __data for routes with a loader', async () => {
+				const stream = await renderStream(
+					buildRequest('https://example.com/articles/non-existent')
+				);
+				const body = await drain(stream);
+
+				const match = body.match(
+					/<script[^>]*id="__data"[^>]*type="application\/json"[^>]*>([\s\S]*?)<\/script>/
+				);
+
+				expect(match).not.toEqual(null);
+				expect(JSON.parse(match![1])).toEqual(null);
+			});
+		});
+
 		describe('metadata hoisting', () => {
 			it('should hoist <title> into <head>', async () => {
 				const stream = await renderStream(
-					new URL('https://example.com/')
+					buildRequest('https://example.com/')
 				);
 				const body = await drain(stream);
 
@@ -145,7 +187,7 @@ describe('@/worker/render', () => {
 				matchSpy.mockResolvedValueOnce(cachedResponse);
 
 				const response = await renderWithCache(
-					new URL('https://example.com/foo'),
+					buildRequest('https://example.com/foo'),
 					cache
 				);
 				const body = await response.text();
@@ -159,7 +201,7 @@ describe('@/worker/render', () => {
 				matchSpy.mockResolvedValueOnce(null);
 
 				await renderWithCache(
-					new URL('https://example.com/foo?q=1'),
+					buildRequest('https://example.com/foo?q=1'),
 					cache
 				);
 
@@ -176,7 +218,7 @@ describe('@/worker/render', () => {
 
 			it('should respond with content-type text/html; charset=utf-8', async () => {
 				const response = await renderWithCache(
-					new URL('https://example.com/'),
+					buildRequest('https://example.com/'),
 					cache
 				);
 
@@ -187,7 +229,7 @@ describe('@/worker/render', () => {
 
 			it('should respond with cache-control public, max-age=300', async () => {
 				const response = await renderWithCache(
-					new URL('https://example.com/'),
+					buildRequest('https://example.com/'),
 					cache
 				);
 
@@ -197,8 +239,10 @@ describe('@/worker/render', () => {
 			});
 
 			it('should write the rendered html to the cache via waitUntil', async () => {
-				const url = new URL('https://example.com/foo');
-				const response = await renderWithCache(url, cache);
+				const response = await renderWithCache(
+					buildRequest('https://example.com/foo'),
+					cache
+				);
 
 				// drain client stream so the tee'd cache stream can also drain
 				await response.text();
@@ -227,7 +271,7 @@ describe('@/worker/render', () => {
 
 			try {
 				const response = await renderHtml(
-					new URL('https://example.com/')
+					buildRequest('https://example.com/')
 				);
 				const body = await response.text();
 
