@@ -36,7 +36,7 @@ const Articles = ({ data }: Route.PageProps) => {
 				<p className='mt-20 text-neutral-500'>No articles yet.</p>
 			) : (
 				<ul className='mt-20 grid grid-cols-1 divide-y divide-neutral-200 border-t border-b border-neutral-200'>
-					{articles.map(article => {
+					{_.map(articles, article => {
 						return (
 							<li key={article.slug}>
 								<ArticleCard article={article} />

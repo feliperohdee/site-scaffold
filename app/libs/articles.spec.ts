@@ -110,7 +110,7 @@ describe('@/app/libs/articles', () => {
 		});
 
 		it('should sort by date descending', () => {
-			const dates = getArticles().map(article => {
+			const dates = _.map(getArticles(), article => {
 				return article.date;
 			});
 			const sorted = [...dates].sort((a, b) => {

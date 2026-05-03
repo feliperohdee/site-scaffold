@@ -104,14 +104,11 @@ const parseValue = (raw: string): string | string[] => {
 
 	if (value.startsWith('[') && value.endsWith(']')) {
 		const inner = value.slice(1, -1);
-		const items = inner
-			.split(',')
-			.map(item => {
+		const items = _.compact(
+			_.map(_.split(inner, ','), item => {
 				return stripQuotes(item);
 			})
-			.filter(item => {
-				return _.size(item) > 0;
-			});
+		);
 
 		return items;
 	}
@@ -161,7 +158,7 @@ const articles: Article[] = _.orderBy(
 );
 
 const articlesBySlug = new Map(
-	articles.map(article => {
+	_.map(articles, article => {
 		return [article.slug, article];
 	})
 );

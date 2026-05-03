@@ -158,9 +158,9 @@ const resolveRoute = async (
 	route: Route.MatchResult
 ): Promise<Route.Resolved> => {
 	const data = route.loader ? await route.loader() : null;
-	const meta = route.meta ? route.meta(data) : null;
-	const jsonLd = route.jsonLd ? route.jsonLd(data) : null;
 	const indexable = route.indexable ? route.indexable(data) : true;
+	const jsonLd = route.jsonLd ? route.jsonLd(data) : null;
+	const meta = route.meta ? route.meta(data) : null;
 
 	return { data, indexable, jsonLd, meta };
 };
