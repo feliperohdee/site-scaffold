@@ -33,7 +33,10 @@ class R2Cache {
 		);
 	}
 
-	async match(url: string, version?: string | null): Promise<Response | null> {
+	async match(
+		url: string,
+		version?: string | null
+	): Promise<Response | null> {
 		const key = this.key(url, version);
 		const cacheUrl = `https://r2-cache/${key}`;
 		const volatileCache = this.volatile

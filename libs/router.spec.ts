@@ -1,8 +1,35 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import createRouter, { Route } from '@/libs/router';
-import pages from '@/libs/pages';
 import { clientOnly } from '@/libs/client-only';
+
+const HomeComponent: Route.PageComponent = () => {
+	return null;
+};
+
+const ArticleComponent: Route.PageComponent = () => {
+	return null;
+};
+
+const ArticlesComponent: Route.PageComponent = () => {
+	return null;
+};
+
+const SlugComponent: Route.PageComponent = () => {
+	return null;
+};
+
+const NotFoundComponent: Route.PageComponent = () => {
+	return null;
+};
+
+const pages: Record<string, Route.PageComponent> = {
+	article: ArticleComponent,
+	articles: ArticlesComponent,
+	home: HomeComponent,
+	'not-found': NotFoundComponent,
+	slug: SlugComponent
+};
 
 describe('@/libs/router', () => {
 	describe('add', () => {
@@ -12,9 +39,9 @@ describe('@/libs/router', () => {
 
 		it('should be chainable', () => {
 			const router = createRouter(pages).notFound({
-				Component: pages['not-found']
+				Component: NotFoundComponent
 			});
-			const result = router.add('/', { Component: pages.home });
+			const result = router.add('/', { Component: HomeComponent });
 
 			expect(result).toBe(router);
 		});
@@ -24,7 +51,7 @@ describe('@/libs/router', () => {
 				return null;
 			};
 			const router = createRouter(pages).notFound({
-				Component: pages['not-found']
+				Component: NotFoundComponent
 			});
 
 			try {
@@ -45,7 +72,7 @@ describe('@/libs/router', () => {
 				return null;
 			};
 			const router = createRouter(pages).notFound({
-				Component: pages['not-found']
+				Component: NotFoundComponent
 			});
 			const result = router.add('/x', { Component: Unregistered });
 
@@ -74,11 +101,11 @@ describe('@/libs/router', () => {
 
 		it('should fall back to NotFound for unmatched paths with full MatchResult shape when no meta is provided', () => {
 			const router = createRouter(pages).notFound({
-				Component: pages['not-found']
+				Component: NotFoundComponent
 			});
 			const result = router.match('/no-such-path');
 
-			expect(result.Component).toBe(pages['not-found']);
+			expect(result.Component).toBe(NotFoundComponent);
 			expect(result.cache).toEqual(true);
 			expect(result.cacheScope).toEqual(null);
 			expect(result.jsonLd).toEqual(null);
@@ -91,7 +118,7 @@ describe('@/libs/router', () => {
 
 		it('should expose the meta thunk for the not-found fallback when notFound() handler provides one', () => {
 			const router = createRouter(pages).notFound({
-				Component: pages['not-found'],
+				Component: NotFoundComponent,
 				meta: () => {
 					return { title: 'Not found — Site' };
 				}
@@ -104,13 +131,13 @@ describe('@/libs/router', () => {
 		});
 
 		it('should throw in dev when a client-only component is registered as a page', () => {
-			const ClientOnlyComponent = clientOnly(pages.home);
+			const ClientOnlyComponent = clientOnly(HomeComponent);
 			const clientOnlyPages = {
 				...pages,
 				home: ClientOnlyComponent
 			};
 			const router = createRouter(clientOnlyPages)
-				.notFound({ Component: pages['not-found'] })
+				.notFound({ Component: NotFoundComponent })
 				.add('/', { Component: ClientOnlyComponent });
 
 			try {
@@ -127,23 +154,23 @@ describe('@/libs/router', () => {
 		it('should fall back to NotFound in non-dev when a client-only component is registered as a page', () => {
 			vi.stubEnv('DEV', false);
 
-			const ClientOnlyComponent = clientOnly(pages.home);
+			const ClientOnlyComponent = clientOnly(HomeComponent);
 			const clientOnlyPages = {
 				...pages,
 				home: ClientOnlyComponent
 			};
 			const router = createRouter(clientOnlyPages)
-				.notFound({ Component: pages['not-found'] })
+				.notFound({ Component: NotFoundComponent })
 				.add('/', { Component: ClientOnlyComponent });
 			const result = router.match('/');
 
-			expect(result.Component).toBe(pages['not-found']);
+			expect(result.Component).toBe(NotFoundComponent);
 		});
 
 		it('should populate MatchResult with handler defaults when fields are omitted', () => {
 			const router = createRouter(pages)
-				.notFound({ Component: pages['not-found'] })
-				.add('/', { Component: pages.home });
+				.notFound({ Component: NotFoundComponent })
+				.add('/', { Component: HomeComponent });
 			const result = router.match('/');
 
 			expect(result.cache).toEqual(true);
@@ -161,11 +188,11 @@ describe('@/libs/router', () => {
 			const loader: Route.Loader = vi.fn();
 			const meta = vi.fn();
 			const router = createRouter(pages)
-				.notFound({ Component: pages['not-found'] })
+				.notFound({ Component: NotFoundComponent })
 				.add('/articles/:slug', {
 					cache: false,
 					cacheScope,
-					Component: pages.article,
+					Component: ArticleComponent,
 					indexable,
 					jsonLd,
 					loader,
@@ -183,18 +210,18 @@ describe('@/libs/router', () => {
 
 		it('should return the matched component for a registered path', () => {
 			const router = createRouter(pages)
-				.notFound({ Component: pages['not-found'] })
-				.add('/', { Component: pages.home });
+				.notFound({ Component: NotFoundComponent })
+				.add('/', { Component: HomeComponent });
 			const result = router.match('/');
 
-			expect(result.Component).toBe(pages.home);
+			expect(result.Component).toBe(HomeComponent);
 		});
 
 		it('should derive page from the Component via reverse-lookup in the pages map', () => {
 			const router = createRouter(pages)
-				.notFound({ Component: pages['not-found'] })
-				.add('/', { Component: pages.home })
-				.add('/articles/:slug', { Component: pages.article });
+				.notFound({ Component: NotFoundComponent })
+				.add('/', { Component: HomeComponent })
+				.add('/articles/:slug', { Component: ArticleComponent });
 
 			expect(router.match('/').page).toEqual('home');
 			expect(router.match('/articles/x').page).toEqual('article');
@@ -202,8 +229,8 @@ describe('@/libs/router', () => {
 
 		it('should extract pathParams from a parametrized path', () => {
 			const router = createRouter(pages)
-				.notFound({ Component: pages['not-found'] })
-				.add('/articles/:slug', { Component: pages.article });
+				.notFound({ Component: NotFoundComponent })
+				.add('/articles/:slug', { Component: ArticleComponent });
 			const result = router.match('/articles/hello-world');
 
 			expect(result.pathParams).toEqual({ slug: 'hello-world' });
@@ -211,15 +238,15 @@ describe('@/libs/router', () => {
 
 		it('should match the first registered route when multiple match', () => {
 			const router = createRouter(pages)
-				.notFound({ Component: pages['not-found'] })
-				.add('/articles', { Component: pages.articles })
-				.add('/:slug', { Component: pages.slug });
+				.notFound({ Component: NotFoundComponent })
+				.add('/articles', { Component: ArticlesComponent })
+				.add('/:slug', { Component: SlugComponent });
 			const articles = router.match('/articles');
 			const slug = router.match('/whatever');
 
-			expect(articles.Component).toBe(pages.articles);
+			expect(articles.Component).toBe(ArticlesComponent);
 			expect(articles.page).toEqual('articles');
-			expect(slug.Component).toBe(pages.slug);
+			expect(slug.Component).toBe(SlugComponent);
 			expect(slug.page).toEqual('slug');
 			expect(slug.pathParams).toEqual({ slug: 'whatever' });
 		});
@@ -232,7 +259,7 @@ describe('@/libs/router', () => {
 
 		it('should be chainable', () => {
 			const router = createRouter(pages);
-			const result = router.notFound({ Component: pages['not-found'] });
+			const result = router.notFound({ Component: NotFoundComponent });
 
 			expect(result).toBe(router);
 		});

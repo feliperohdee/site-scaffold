@@ -1,13 +1,11 @@
 import _ from 'lodash';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import bestCoffeeHub from '@/app/pseo/pages/best-coffee-hub';
-import bestCoffeeItem from '@/app/pseo/pages/best-coffee-item';
 import context from '@/worker/context';
 import ContextStorage from '@/worker/context-storage';
 import createRouter from '@/libs/router';
-import pages from '@/libs/pages';
 import type { Pseo } from '@/libs/pseo/types';
+import type { Route } from '@/libs/router';
 import registerCollections, {
 	buildItemCacheVersion,
 	buildItemPath
@@ -22,6 +20,24 @@ type City = {
 	placesCount: number;
 	slug: string;
 	updatedAt: string;
+};
+
+const HubComponent: Route.PageComponent = () => {
+	return null;
+};
+
+const ItemComponent: Route.PageComponent = () => {
+	return null;
+};
+
+const NotFoundComponent: Route.PageComponent = () => {
+	return null;
+};
+
+const pages: Record<string, Route.PageComponent> = {
+	'best-coffee-hub': HubComponent,
+	'best-coffee-item': ItemComponent,
+	'not-found': NotFoundComponent
 };
 
 const buildCities = (): City[] => {
@@ -50,7 +66,7 @@ const buildCities = (): City[] => {
 const buildDefinition = (): Pseo.Definition<City> => {
 	return {
 		hub: {
-			Component: bestCoffeeHub,
+			Component: HubComponent,
 			meta: ({ items }) => {
 				return {
 					canonical: '/best-coffee',
@@ -60,7 +76,7 @@ const buildDefinition = (): Pseo.Definition<City> => {
 			path: '/best-coffee'
 		},
 		item: {
-			Component: bestCoffeeItem,
+			Component: ItemComponent,
 			indexable: ({ item }) => {
 				return item.placesCount >= 5;
 			},
@@ -138,13 +154,13 @@ describe('@/libs/pseo/register', () => {
 
 		it('should register an item route that resolves :slug against list()', async () => {
 			const router = createRouter(pages).notFound({
-				Component: pages['not-found']
+				Component: NotFoundComponent
 			});
 			registerCollections(router, [buildDefinition()]);
 
 			const match = router.match('/best-coffee/lisbon');
 
-			expect(match.Component).toBe(bestCoffeeItem);
+			expect(match.Component).toBe(ItemComponent);
 			expect(match.pathParams).toEqual({ slug: 'lisbon' });
 
 			const data = await inContext({ slug: 'lisbon' }, () => {
@@ -156,7 +172,7 @@ describe('@/libs/pseo/register', () => {
 
 		it('should expose meta/jsonLd/indexable that derive from the loaded item', async () => {
 			const router = createRouter(pages).notFound({
-				Component: pages['not-found']
+				Component: NotFoundComponent
 			});
 			registerCollections(router, [buildDefinition()]);
 			const match = router.match('/best-coffee/lisbon');
@@ -180,7 +196,7 @@ describe('@/libs/pseo/register', () => {
 
 		it('should mark items below the indexable threshold as noindex', async () => {
 			const router = createRouter(pages).notFound({
-				Component: pages['not-found']
+				Component: NotFoundComponent
 			});
 			registerCollections(router, [buildDefinition()]);
 			const match = router.match('/best-coffee/coimbra');
@@ -196,7 +212,7 @@ describe('@/libs/pseo/register', () => {
 
 		it('should synthesize cacheScope as c/<name>/<version>/i:<itemVersion>', async () => {
 			const router = createRouter(pages).notFound({
-				Component: pages['not-found']
+				Component: NotFoundComponent
 			});
 			registerCollections(router, [buildDefinition()]);
 			const match = router.match('/best-coffee/lisbon');
@@ -214,7 +230,7 @@ describe('@/libs/pseo/register', () => {
 
 		it('should return null cacheScope when the loader returned null (item not found)', async () => {
 			const router = createRouter(pages).notFound({
-				Component: pages['not-found']
+				Component: NotFoundComponent
 			});
 			registerCollections(router, [buildDefinition()]);
 			const match = router.match('/best-coffee/missing');
@@ -234,7 +250,7 @@ describe('@/libs/pseo/register', () => {
 
 		it('should register a hub route that loads the full list', async () => {
 			const router = createRouter(pages).notFound({
-				Component: pages['not-found']
+				Component: NotFoundComponent
 			});
 			registerCollections(router, [buildDefinition()]);
 			const match = router.match('/best-coffee');
@@ -253,7 +269,7 @@ describe('@/libs/pseo/register', () => {
 
 		it('should register a sitemap contributor with the collection name', () => {
 			const router = createRouter(pages).notFound({
-				Component: pages['not-found']
+				Component: NotFoundComponent
 			});
 			registerCollections(router, [buildDefinition()]);
 			const contributors = getContributors();
@@ -270,12 +286,12 @@ describe('@/libs/pseo/register', () => {
 
 		it('should default to "1" when version is omitted', async () => {
 			const router = createRouter(pages).notFound({
-				Component: pages['not-found']
+				Component: NotFoundComponent
 			});
 			const definition: Pseo.Definition<City> = {
 				hub: null,
 				item: {
-					Component: bestCoffeeItem,
+					Component: ItemComponent,
 					key: 'slug',
 					list: () => {
 						return buildCities();
