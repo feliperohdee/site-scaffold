@@ -1,10 +1,6 @@
-import Head from '@/app/components/head';
-import { SITE_NAME } from '@/constants';
-
 const NotFound = () => {
 	return (
 		<main className='mx-auto max-w-3xl px-6 py-24'>
-			<Head title={`Not found — ${SITE_NAME}`} />
 			<p className='text-xs font-semibold tracking-[0.2em] text-neutral-500 uppercase'>
 				Error
 			</p>

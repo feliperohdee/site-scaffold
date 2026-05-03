@@ -1,7 +1,6 @@
 import { useState } from 'react';
 
 import ClientOnly from '@/libs/client-only';
-import Head from '@/app/components/head';
 import Now from '@/app/components/now';
 import { SITE_NAME } from '@/constants';
 
@@ -14,10 +13,6 @@ const Home = () => {
 
 	return (
 		<main className='mx-auto max-w-3xl px-6 py-24'>
-			<Head
-				description='A streaming SSR + hydrate starter on Cloudflare Workers.'
-				title={`${SITE_NAME} — home`}
-			/>
 			<p className='text-xs font-semibold tracking-[0.2em] text-neutral-500 uppercase'>
 				A scaffold
 			</p>
@@ -89,6 +84,41 @@ const Home = () => {
 					href='/some/missing/path'
 				>
 					/some/missing/path (404)
+				</a>
+			</nav>
+			<nav className='mt-12 grid grid-cols-1 gap-3 border-t border-neutral-200 pt-10'>
+				<p className='text-xs font-semibold tracking-[0.2em] text-neutral-500 uppercase'>
+					Programmatic SEO sample
+				</p>
+				<a
+					className='text-base font-medium underline'
+					href='/best-coffee'
+				>
+					/best-coffee (hub)
+				</a>
+				<a
+					className='text-base font-medium underline'
+					href='/best-coffee/lisbon'
+				>
+					/best-coffee/lisbon (item)
+				</a>
+				<a
+					className='text-base font-medium underline'
+					href='/best-coffee/coimbra'
+				>
+					/best-coffee/coimbra (thin → noindex)
+				</a>
+				<a
+					className='text-base font-medium underline'
+					href='/sitemap.xml'
+				>
+					/sitemap.xml
+				</a>
+				<a
+					className='text-base font-medium underline'
+					href='/robots.txt'
+				>
+					/robots.txt
 				</a>
 			</nav>
 		</main>

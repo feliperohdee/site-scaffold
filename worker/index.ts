@@ -1,6 +1,7 @@
 import ContextStorage from '@/worker/context-storage';
 import context from '@/worker/context';
 import renderHtml from '@/worker/render';
+import { handleSitemapRequest } from '@/libs/sitemap';
 
 const handler = {
 	async fetch(req: Request): Promise<Response> {
@@ -10,6 +11,21 @@ const handler = {
 
 		return context.run(new ContextStorage({ request: req }), async () => {
 			try {
+				const url = new URL(req.url);
+				const sitemap = await handleSitemapRequest(
+					url.pathname,
+					url.origin
+				);
+
+				if (sitemap) {
+					return new Response(sitemap.body, {
+						headers: {
+							'cache-control': 'public, max-age=300',
+							'content-type': sitemap.contentType
+						}
+					});
+				}
+
 				return await renderHtml(req);
 			} catch (err) {
 				console.error('Worker error:', err);

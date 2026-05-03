@@ -1,8 +1,8 @@
 import { ReactNode } from 'react';
 
-import safeJsonStringify from '@/libs/safe-json';
 import { DEV } from '@/constants';
-
+import DocumentHead from '@/app/components/document-head';
+import safeJsonStringify from '@/libs/safe-json';
 import type { Route } from '@/libs/router';
 
 const clientEntry = DEV ? '/app/index.tsx' : '/assets/client.js';
@@ -31,6 +31,11 @@ const Document = ({
 					content='width=device-width, initial-scale=1.0'
 					name='viewport'
 				/>
+				<DocumentHead
+					indexable={hydration.indexable}
+					jsonLd={hydration.jsonLd}
+					meta={hydration.meta}
+				/>
 				<link
 					href='https://fonts.googleapis.com'
 					rel='preconnect'
@@ -44,14 +49,14 @@ const Document = ({
 					href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&display=swap'
 					rel='stylesheet'
 				/>
-				{DEV && (
+				{DEV ? (
 					<script
 						dangerouslySetInnerHTML={{
 							__html: reactRefreshPreamble
 						}}
 						type='module'
 					/>
-				)}
+				) : null}
 				<link
 					href={cssHref}
 					rel='stylesheet'

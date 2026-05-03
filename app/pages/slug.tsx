@@ -1,5 +1,4 @@
-import Head from '@/app/components/head';
-import { CACHE_HEADER, SITE_NAME } from '@/constants';
+import { CACHE_HEADER } from '@/constants';
 
 const Slug = ({
 	pathParams
@@ -7,14 +6,10 @@ const Slug = ({
 	pathParams: Record<string, unknown>;
 	searchParams: URLSearchParams;
 }) => {
-	const slug = String(pathParams.slug ?? '');
+	const slug = `${pathParams.slug ?? ''}`;
 
 	return (
 		<main className='mx-auto max-w-3xl px-6 py-24'>
-			<Head
-				description={`A dynamic page rendered for the slug "${slug}".`}
-				title={`${slug} — ${SITE_NAME}`}
-			/>
 			<a
 				className='text-sm font-medium underline'
 				href='/'

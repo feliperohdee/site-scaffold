@@ -1,19 +1,14 @@
 import _ from 'lodash';
 
+import { isArticleList } from '@/app/libs/articles';
 import ArticleCard from '@/app/components/article-card';
-import Head from '@/app/components/head';
-import { getArticles } from '@/app/libs/articles';
-import { SITE_NAME } from '@/constants';
+import type { Route } from '@/libs/router';
 
-const Articles = () => {
-	const articles = getArticles();
+const Articles = ({ data }: Route.PageProps) => {
+	const articles = isArticleList(data) ? data : [];
 
 	return (
 		<main className='mx-auto max-w-3xl px-6 py-24'>
-			<Head
-				description='Long-form writing, notes, and experiments.'
-				title={`Articles — ${SITE_NAME}`}
-			/>
 			<a
 				className='text-sm font-medium underline'
 				href='/'

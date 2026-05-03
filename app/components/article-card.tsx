@@ -9,10 +9,10 @@ const ArticleCard = ({ article }: { article: Article }) => {
 			href={`/articles/${article.slug}`}
 		>
 			<div className='flex items-center gap-3 text-xs font-semibold tracking-[0.2em] text-neutral-500 uppercase'>
-				{article.date && (
+				{article.date ? (
 					<time dateTime={article.date}>{article.date}</time>
-				)}
-				{article.date && <span aria-hidden>·</span>}
+				) : null}
+				{article.date ? <span aria-hidden>·</span> : null}
 				<span>{article.readingTime} min read</span>
 			</div>
 			<h2 className='tracking-display mt-3 text-3xl leading-tight font-black text-black group-hover:underline'>
@@ -21,9 +21,9 @@ const ArticleCard = ({ article }: { article: Article }) => {
 			<p className='mt-3 max-w-2xl text-base leading-relaxed text-neutral-700'>
 				{article.excerpt}
 			</p>
-			{_.size(article.tags) > 0 && (
+			{_.size(article.tags) > 0 ? (
 				<ul className='mt-4 flex flex-wrap gap-2'>
-					{article.tags.map(tag => {
+					{_.map(article.tags, tag => {
 						return (
 							<li
 								className='bg-neutral-100 px-2 py-0.5 text-xs font-bold tracking-wide text-neutral-700 uppercase'
@@ -34,7 +34,7 @@ const ArticleCard = ({ article }: { article: Article }) => {
 						);
 					})}
 				</ul>
-			)}
+			) : null}
 		</a>
 	);
 };

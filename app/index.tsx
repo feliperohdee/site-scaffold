@@ -10,6 +10,9 @@ import type { Route } from '@/libs/router';
 
 const emptyHydration: Route.Hydration = {
 	data: null,
+	indexable: false,
+	jsonLd: null,
+	meta: null,
 	page: 'not-found',
 	pathParams: {},
 	searchParams: ''

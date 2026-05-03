@@ -185,7 +185,8 @@ This is the single registry both the worker (for routing) and the client (for hy
 `worker/routes.ts` is the only place that imports the router engine. It registers paths against components from `pages` and (optionally) declares a loader inline:
 
 ```ts
-const router = createRouter('not-found', pages)
+const router = createRouter(pages)
+	.notFound({ Component: pages['not-found'] })
 	.add('/', { Component: pages.home })
 	.add('/articles', { Component: pages.articles })
 	.add('/articles/:slug', {
@@ -201,9 +202,9 @@ const router = createRouter('not-found', pages)
 export default router.match;
 ```
 
-`createRouter(notFoundPage, pages)` builds a `Component → page-key` reverse-lookup once at startup — that's how the `page` identifier in the hydration meta is derived. **The user never declares `page`** anywhere; it falls out of the Component reference.
+`createRouter(pages)` builds a `Component → page-key` reverse-lookup once at startup — that's how the `page` identifier in the hydration meta is derived. **The user never declares `page`** anywhere; it falls out of the Component reference. `.notFound(handler)` is required (the router throws on first `.match()` if absent) and accepts the same `Handler` shape as `.add()`, so the not-found page can carry its own `meta` / `jsonLd` / `cacheScope` like any other route.
 
-In dev, `add()` throws if you pass a Component that isn't in the pages map (catches typos / forgetting to drop the file in `app/pages/`).
+In dev, `add()` and `notFound()` throw if you pass a Component that isn't in the pages map (catches typos / forgetting to drop the file in `app/pages/`).
 
 Because `routes.ts` lives in `worker/`, it's only bundled into the SSR build. Loader bodies — which may pull secrets from KV, hit D1, or execute auth — never reach the client.
 
@@ -461,7 +462,7 @@ Client gets bytes immediately. Cache write happens in the background. The cache 
 
 ### Helmet without a library
 
-React 19 hoists any `<title>`, `<meta>`, `<link>` rendered anywhere in the tree into the document `<head>` automatically — both during SSR (rendered into the head of the streamed HTML) and on the client (mutated via `document.head`). The `<Head>` component (`app/components/head.tsx`) is a 30-line wrapper that just emits these tags.
+React 19 hoists any `<title>`, `<meta>`, `<link>` rendered anywhere in the tree into the document `<head>` automatically — both during SSR (rendered into the head of the streamed HTML) and on the client (mutated via `document.head`). Routes declare a `meta` callback in `worker/routes.ts`; `<DocumentHead>` (in `app/document.tsx`) reads the resolved value off hydration and emits the tags. No helmet library, no per-page hand-rolled head component.
 
 ### Asset paths
 
@@ -494,7 +495,7 @@ The bootstrap script is rendered by `<Document>` itself (not via React's `bootst
 ```
 app/libs/articles.spec.ts        (23 tests)  buildExcerpt, computeReadingTime,
                                               getArticleBySlug, getArticles,
-                                              parseFrontmatter, renderMarkdown,
+                                              parseMarkdownDocument, renderMarkdown,
                                               slugFromPath, stripMarkdown
 libs/pages.spec.ts               (2 tests)   auto-discovery + value shape
 libs/router.spec.ts              (14 tests)  createRouter validation, add() guards,

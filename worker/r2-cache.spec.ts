@@ -74,6 +74,17 @@ describe('@/worker/r2-cache', () => {
 				`embed-test/${CACHE_VERSION}/img/nested/path.jpg`
 			);
 		});
+
+		it('should slot a custom version segment in place of CACHE_VERSION', () => {
+			const result = cache.key(
+				'https://example.com/best-coffee/lisbon',
+				'c/best-coffee/2026-05-02'
+			);
+
+			expect(result).toEqual(
+				'embed-test/c/best-coffee/2026-05-02/best-coffee/lisbon'
+			);
+		});
 	});
 
 	describe('match', () => {

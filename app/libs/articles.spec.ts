@@ -1,16 +1,31 @@
 import _ from 'lodash';
 import { describe, expect, it } from 'vitest';
 
+import type { Article } from '@/app/libs/articles';
 import {
 	buildExcerpt,
 	computeReadingTime,
 	getArticleBySlug,
 	getArticles,
-	parseFrontmatter,
+	isArticle,
+	isArticleList,
+	parseMarkdownDocument,
+	parseValue,
 	renderMarkdown,
 	slugFromPath,
-	stripMarkdown
+	stripMarkdown,
+	stripQuotes
 } from '@/app/libs/articles';
+
+const seedArticle = (): Article => {
+	const article = getArticleBySlug('hello-world');
+
+	if (!article) {
+		throw new Error('test fixture missing: hello-world article');
+	}
+
+	return article;
+};
 
 describe('@/app/libs/articles', () => {
 	describe('buildExcerpt', () => {
@@ -105,9 +120,61 @@ describe('@/app/libs/articles', () => {
 		});
 	});
 
-	describe('parseFrontmatter', () => {
+	describe('isArticle', () => {
+		it('should return false for null', () => {
+			expect(isArticle(null)).toEqual(false);
+		});
+
+		it('should return false for undefined', () => {
+			expect(isArticle(undefined)).toEqual(false);
+		});
+
+		it('should return false for primitives', () => {
+			expect(isArticle('string')).toEqual(false);
+			expect(isArticle(42)).toEqual(false);
+			expect(isArticle(true)).toEqual(false);
+		});
+
+		it('should return false for plain objects without slug', () => {
+			expect(isArticle({ title: 'x' })).toEqual(false);
+		});
+
+		it('should return true for objects with a slug field', () => {
+			expect(isArticle({ slug: 'hello' })).toEqual(true);
+		});
+
+		it('should return true for a real Article fixture', () => {
+			expect(isArticle(seedArticle())).toEqual(true);
+		});
+	});
+
+	describe('isArticleList', () => {
+		it('should return false for null', () => {
+			expect(isArticleList(null)).toEqual(false);
+		});
+
+		it('should return false for undefined', () => {
+			expect(isArticleList(undefined)).toEqual(false);
+		});
+
+		it('should return false for non-array values', () => {
+			expect(isArticleList({ slug: 'hello' })).toEqual(false);
+			expect(isArticleList('string')).toEqual(false);
+			expect(isArticleList(42)).toEqual(false);
+		});
+
+		it('should return true for an empty array', () => {
+			expect(isArticleList([])).toEqual(true);
+		});
+
+		it('should return true for a real Article list', () => {
+			expect(isArticleList(getArticles())).toEqual(true);
+		});
+	});
+
+	describe('parseMarkdownDocument', () => {
 		it('should return the raw body when no frontmatter delimiters are present', () => {
-			const result = parseFrontmatter('# Just a heading\n\nBody.');
+			const result = parseMarkdownDocument('# Just a heading\n\nBody.');
 
 			expect(result).toEqual({
 				body: '# Just a heading\n\nBody.',
@@ -115,37 +182,17 @@ describe('@/app/libs/articles', () => {
 			});
 		});
 
-		it('should split frontmatter from body and parse string values', () => {
-			const result = parseFrontmatter(
-				'---\ntitle: Hello\ndate: 2026-05-02\n---\nBody here.'
+		it('should split frontmatter from the body', () => {
+			const result = parseMarkdownDocument(
+				'---\ntitle: Hello\n---\nBody here.'
 			);
 
-			expect(result.meta).toEqual({
-				date: '2026-05-02',
-				title: 'Hello'
-			});
+			expect(result.meta).toEqual({ title: 'Hello' });
 			expect(result.body).toEqual('Body here.');
 		});
 
-		it('should strip surrounding double or single quotes from string values', () => {
-			const result = parseFrontmatter(
-				'---\ntitle: "Quoted Title"\nauthor: \'Single\'\n---\nx'
-			);
-
-			expect(result.meta.title).toEqual('Quoted Title');
-			expect(result.meta.author).toEqual('Single');
-		});
-
-		it('should parse bracketed comma-separated values into a string array', () => {
-			const result = parseFrontmatter(
-				'---\ntags: [react, web, "with space"]\n---\n'
-			);
-
-			expect(result.meta.tags).toEqual(['react', 'web', 'with space']);
-		});
-
 		it('should ignore lines without a colon', () => {
-			const result = parseFrontmatter(
+			const result = parseMarkdownDocument(
 				'---\ntitle: Hello\nthis is junk\ndate: 2026-05-02\n---\n'
 			);
 
@@ -153,6 +200,56 @@ describe('@/app/libs/articles', () => {
 				date: '2026-05-02',
 				title: 'Hello'
 			});
+		});
+
+		it('should ignore lines whose key is empty after trimming', () => {
+			const result = parseMarkdownDocument(
+				'---\ntitle: Hello\n   : orphan\n---\n'
+			);
+
+			expect(result.meta).toEqual({ title: 'Hello' });
+		});
+	});
+
+	describe('parseValue', () => {
+		it('should return a trimmed plain string when no brackets are present', () => {
+			expect(parseValue('  hello  ')).toEqual('hello');
+		});
+
+		it('should strip surrounding double quotes from a plain string', () => {
+			expect(parseValue('"Quoted Title"')).toEqual('Quoted Title');
+		});
+
+		it('should strip surrounding single quotes from a plain string', () => {
+			expect(parseValue("'Single'")).toEqual('Single');
+		});
+
+		it('should parse bracketed comma-separated values into a string array', () => {
+			expect(parseValue('[react, web, "with space"]')).toEqual([
+				'react',
+				'web',
+				'with space'
+			]);
+		});
+
+		it('should parse an empty bracketed value as an empty array', () => {
+			expect(parseValue('[]')).toEqual([]);
+		});
+
+		it('should drop empty items inside a bracketed value', () => {
+			expect(parseValue('[react, , web,   ]')).toEqual(['react', 'web']);
+		});
+
+		it('should strip single quotes from items inside a bracketed value', () => {
+			expect(parseValue("[react, 'web', 'with space']")).toEqual([
+				'react',
+				'web',
+				'with space'
+			]);
+		});
+
+		it('should treat an unterminated bracket as a plain string value', () => {
+			expect(parseValue('[unfinished')).toEqual('[unfinished');
 		});
 	});
 
@@ -209,10 +306,51 @@ describe('@/app/libs/articles', () => {
 			expect(result).toEqual('Title A quote one two bold italic strike');
 		});
 
+		it('should strip asterisk and plus list bullets alongside dashes', () => {
+			const result = stripMarkdown('- one\n* two\n+ three');
+
+			expect(result).toEqual('one two three');
+		});
+
+		it('should strip ordered list bullets', () => {
+			const result = stripMarkdown('1. first\n2. second\n10. tenth');
+
+			expect(result).toEqual('first second tenth');
+		});
+
 		it('should unwrap inline code', () => {
 			const result = stripMarkdown('use `npm install` to start');
 
 			expect(result).toEqual('use npm install to start');
+		});
+	});
+
+	describe('stripQuotes', () => {
+		it('should trim whitespace when no quotes are present', () => {
+			expect(stripQuotes('  hello  ')).toEqual('hello');
+		});
+
+		it('should strip surrounding double quotes', () => {
+			expect(stripQuotes('"hello"')).toEqual('hello');
+		});
+
+		it('should strip surrounding single quotes', () => {
+			expect(stripQuotes("'hello'")).toEqual('hello');
+		});
+
+		it('should leave mismatched quote pairs intact', () => {
+			expect(stripQuotes(`"hello'`)).toEqual(`"hello'`);
+			expect(stripQuotes(`'hello"`)).toEqual(`'hello"`);
+		});
+
+		it('should leave a value with only one quote intact', () => {
+			expect(stripQuotes('"hello')).toEqual('"hello');
+			expect(stripQuotes("hello'")).toEqual("hello'");
+		});
+
+		it('should return an empty string for empty input', () => {
+			expect(stripQuotes('')).toEqual('');
+			expect(stripQuotes('   ')).toEqual('');
 		});
 	});
 });

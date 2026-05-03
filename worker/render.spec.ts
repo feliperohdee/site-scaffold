@@ -34,6 +34,32 @@ const inContext = <T>(
 };
 
 describe('@/worker/render', () => {
+	describe('renderHtml (cache disabled in dev)', () => {
+		it('should bypass the cache and stream a fresh render every time', async () => {
+			// In dev mode (the default for vitest), CACHE_ENABLED is false.
+			// renderHtml should never touch R2Cache — verify by spying on the prototype.
+			const matchSpy = vi.spyOn(R2Cache.prototype, 'match');
+			const putSpy = vi.spyOn(R2Cache.prototype, 'put');
+
+			try {
+				const response = await inContext(
+					buildRequest('https://example.com/'),
+					renderHtml
+				);
+				const body = await response.text();
+
+				expect(matchSpy).not.toHaveBeenCalled();
+				expect(putSpy).not.toHaveBeenCalled();
+				expect(body).toContain(SITE_NAME);
+				expect(response.headers.get('content-type')).toEqual(
+					'text/html; charset=utf-8'
+				);
+			} finally {
+				vi.restoreAllMocks();
+			}
+		});
+	});
+
 	describe('renderStream', () => {
 		describe('headers / shell', () => {
 			it('should produce HTML starting with <!DOCTYPE html>', async () => {
@@ -149,7 +175,7 @@ describe('@/worker/render', () => {
 				);
 
 				expect(match).not.toEqual(null);
-				expect(JSON.parse(match![1])).toEqual({
+				expect(JSON.parse(match![1])).toMatchObject({
 					data: null,
 					page: 'home',
 					pathParams: {},
@@ -169,7 +195,7 @@ describe('@/worker/render', () => {
 				);
 
 				expect(match).not.toEqual(null);
-				expect(JSON.parse(match![1])).toEqual({
+				expect(JSON.parse(match![1])).toMatchObject({
 					data: null,
 					page: 'article',
 					pathParams: { slug: 'non-existent' },
@@ -206,8 +232,9 @@ describe('@/worker/render', () => {
 				);
 
 				expect(match).not.toEqual(null);
-				expect(JSON.parse(match![1])).toEqual({
+				expect(JSON.parse(match![1])).toMatchObject({
 					data: null,
+					indexable: false,
 					page: 'not-found',
 					pathParams: {},
 					searchParams: ''
@@ -341,32 +368,85 @@ describe('@/worker/render', () => {
 				);
 				expect(await cachedResponse.text()).toContain(SITE_NAME);
 			});
+
+			it('should call cache.match with no version arg for non-scoped routes (regression: legacy fast path is preserved)', async () => {
+				matchSpy.mockResolvedValueOnce(null);
+
+				await inContext(buildRequest('https://example.com/'), req => {
+					return renderWithCache(req, cache);
+				});
+
+				// `/` is the home route, no cacheScope — match() called with one arg only.
+				expect(matchSpy).toHaveBeenCalledWith('https://example.com/');
+			});
 		});
-	});
 
-	describe('renderHtml (cache disabled in dev)', () => {
-		it('should bypass the cache and stream a fresh render every time', async () => {
-			// In dev mode (the default for vitest), CACHE_ENABLED is false.
-			// renderHtml should never touch R2Cache — verify by spying on the prototype.
-			const matchSpy = vi.spyOn(R2Cache.prototype, 'match');
-			const putSpy = vi.spyOn(R2Cache.prototype, 'put');
+		describe('scoped cache (route declares cacheScope)', () => {
+			// /articles/:slug declares cacheScope: `articles/v1/<slug>/<date>`.
+			// /articles/hello-world resolves via the seed article (date 2026-05-02).
+			const SCOPED_URL = 'https://example.com/articles/hello-world';
+			const EXPECTED_VERSION = 'articles/v1/hello-world/2026-05-02';
 
-			try {
+			it('should pass the synthesized version to cache.match', async () => {
+				matchSpy.mockResolvedValueOnce(null);
+
+				await inContext(buildRequest(SCOPED_URL), req => {
+					return renderWithCache(req, cache);
+				});
+
+				expect(matchSpy).toHaveBeenCalledWith(
+					SCOPED_URL,
+					EXPECTED_VERSION
+				);
+			});
+
+			it('should pass the synthesized version to cache.put on miss', async () => {
+				matchSpy.mockResolvedValueOnce(null);
+
 				const response = await inContext(
-					buildRequest('https://example.com/'),
-					renderHtml
+					buildRequest(SCOPED_URL),
+					req => {
+						return renderWithCache(req, cache);
+					}
+				);
+
+				// drain client stream so the tee'd cache stream can also drain
+				await response.text();
+
+				await vi.waitFor(() => {
+					expect(putSpy).toHaveBeenCalledOnce();
+				});
+
+				const [cacheKey, , version] = putSpy.mock.calls[0];
+				expect(cacheKey).toEqual(SCOPED_URL);
+				expect(version).toEqual(EXPECTED_VERSION);
+			});
+
+			it('should HIT and skip rendering when the cache has a match (loader still ran to produce the version, proven via the match() call signature)', async () => {
+				const cachedResponse = new Response('CACHED ARTICLE', {
+					headers: {
+						'content-type': 'text/html; charset=utf-8',
+						[CACHE_HEADER]: 'HIT'
+					}
+				});
+				matchSpy.mockResolvedValueOnce(cachedResponse);
+
+				const response = await inContext(
+					buildRequest(SCOPED_URL),
+					req => {
+						return renderWithCache(req, cache);
+					}
 				);
 				const body = await response.text();
 
-				expect(matchSpy).not.toHaveBeenCalled();
-				expect(putSpy).not.toHaveBeenCalled();
-				expect(body).toContain(SITE_NAME);
-				expect(response.headers.get('content-type')).toEqual(
-					'text/html; charset=utf-8'
+				expect(body).toEqual('CACHED ARTICLE');
+				expect(response.headers.get(CACHE_HEADER)).toEqual('HIT');
+				expect(matchSpy).toHaveBeenCalledWith(
+					SCOPED_URL,
+					EXPECTED_VERSION
 				);
-			} finally {
-				vi.restoreAllMocks();
-			}
+				expect(putSpy).not.toHaveBeenCalled();
+			});
 		});
 	});
 });

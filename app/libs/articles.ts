@@ -11,7 +11,7 @@ type Article = {
 	title: string;
 };
 
-type Frontmatter = {
+type MarkdownDocument = {
 	body: string;
 	meta: Record<string, string | string[]>;
 };
@@ -25,83 +25,26 @@ const modules: Record<string, string> = import.meta.glob(
 	}
 );
 
-const stripQuotes = (value: string): string => {
-	const trimmed = value.trim();
-	const doubleQuoted = trimmed.startsWith('"') && trimmed.endsWith('"');
-	const singleQuoted = trimmed.startsWith("'") && trimmed.endsWith("'");
+const buildArticle = (path: string, raw: string): Article => {
+	const { body, meta } = parseMarkdownDocument(raw);
+	const fileSlug = slugFromPath(path);
+	const excerptOverride = _.isString(meta.excerpt) ? meta.excerpt : null;
+	const slug = _.isString(meta.slug) ? meta.slug : fileSlug;
+	const tags = _.isArray(meta.tags) ? meta.tags : [];
+	const title = _.isString(meta.title) ? meta.title : fileSlug;
+	const date = _.isString(meta.date) ? meta.date : '';
 
-	if (doubleQuoted || singleQuoted) {
-		return trimmed.slice(1, -1);
-	}
+	const article: Article = {
+		content: body,
+		date,
+		excerpt: buildExcerpt(body, excerptOverride),
+		readingTime: computeReadingTime(body),
+		slug,
+		tags,
+		title
+	};
 
-	return trimmed;
-};
-
-const parseValue = (raw: string): string | string[] => {
-	const value = raw.trim();
-
-	if (value.startsWith('[') && value.endsWith(']')) {
-		const inner = value.slice(1, -1);
-		const items = inner
-			.split(',')
-			.map(item => {
-				return stripQuotes(item);
-			})
-			.filter(item => {
-				return _.size(item) > 0;
-			});
-
-		return items;
-	}
-
-	return stripQuotes(value);
-};
-
-const parseFrontmatter = (raw: string): Frontmatter => {
-	const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
-
-	if (!match) {
-		const result: Frontmatter = { body: raw, meta: {} };
-
-		return result;
-	}
-
-	const meta: Record<string, string | string[]> = {};
-	const lines = match[1].split(/\r?\n/);
-
-	for (const line of lines) {
-		const colonIndex = line.indexOf(':');
-
-		if (colonIndex === -1) {
-			continue;
-		}
-
-		const key = line.slice(0, colonIndex).trim();
-		const value = line.slice(colonIndex + 1);
-
-		if (_.size(key) > 0) {
-			meta[key] = parseValue(value);
-		}
-	}
-
-	const result: Frontmatter = { body: match[2], meta };
-
-	return result;
-};
-
-const stripMarkdown = (markdown: string): string => {
-	return markdown
-		.replace(/```[\s\S]*?```/g, '')
-		.replace(/!\[[^\]]*\]\([^)]*\)/g, '')
-		.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
-		.replace(/`([^`]+)`/g, '$1')
-		.replace(/^#{1,6}\s+/gm, '')
-		.replace(/^>\s+/gm, '')
-		.replace(/^[-*+]\s+/gm, '')
-		.replace(/^\d+\.\s+/gm, '')
-		.replace(/[*_~]+/g, '')
-		.replace(/\r?\n+/g, ' ')
-		.trim();
+	return article;
 };
 
 const buildExcerpt = (markdown: string, override: string | null): string => {
@@ -124,32 +67,89 @@ const computeReadingTime = (markdown: string): number => {
 	return Math.max(1, Math.round(words / 200));
 };
 
+const parseMarkdownDocument = (raw: string): MarkdownDocument => {
+	const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
+
+	if (!match) {
+		const result: MarkdownDocument = { body: raw, meta: {} };
+
+		return result;
+	}
+
+	const meta: Record<string, string | string[]> = {};
+	const lines = match[1].split(/\r?\n/);
+
+	for (const line of lines) {
+		const colonIndex = line.indexOf(':');
+
+		if (colonIndex === -1) {
+			continue;
+		}
+
+		const key = line.slice(0, colonIndex).trim();
+		const value = line.slice(colonIndex + 1);
+
+		if (_.size(key) > 0) {
+			meta[key] = parseValue(value);
+		}
+	}
+
+	const result: MarkdownDocument = { body: match[2], meta };
+
+	return result;
+};
+
+const parseValue = (raw: string): string | string[] => {
+	const value = raw.trim();
+
+	if (value.startsWith('[') && value.endsWith(']')) {
+		const inner = value.slice(1, -1);
+		const items = inner
+			.split(',')
+			.map(item => {
+				return stripQuotes(item);
+			})
+			.filter(item => {
+				return _.size(item) > 0;
+			});
+
+		return items;
+	}
+
+	return stripQuotes(value);
+};
+
 const slugFromPath = (path: string): string => {
 	const file = _.last(path.split('/')) ?? '';
 
 	return file.replace(/\.md$/, '');
 };
 
-const buildArticle = (path: string, raw: string): Article => {
-	const { body, meta } = parseFrontmatter(raw);
-	const fileSlug = slugFromPath(path);
-	const excerptOverride = _.isString(meta.excerpt) ? meta.excerpt : null;
-	const slug = _.isString(meta.slug) ? meta.slug : fileSlug;
-	const tags = _.isArray(meta.tags) ? meta.tags : [];
-	const title = _.isString(meta.title) ? meta.title : fileSlug;
-	const date = _.isString(meta.date) ? meta.date : '';
+const stripMarkdown = (markdown: string): string => {
+	return markdown
+		.replace(/```[\s\S]*?```/g, '')
+		.replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+		.replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+		.replace(/`([^`]+)`/g, '$1')
+		.replace(/^#{1,6}\s+/gm, '')
+		.replace(/^>\s+/gm, '')
+		.replace(/^[-*+]\s+/gm, '')
+		.replace(/^\d+\.\s+/gm, '')
+		.replace(/[*_~]+/g, '')
+		.replace(/\r?\n+/g, ' ')
+		.trim();
+};
 
-	const article: Article = {
-		content: body,
-		date,
-		excerpt: buildExcerpt(body, excerptOverride),
-		readingTime: computeReadingTime(body),
-		slug,
-		tags,
-		title
-	};
+const stripQuotes = (value: string): string => {
+	const trimmed = value.trim();
+	const doubleQuoted = trimmed.startsWith('"') && trimmed.endsWith('"');
+	const singleQuoted = trimmed.startsWith("'") && trimmed.endsWith("'");
 
-	return article;
+	if (doubleQuoted || singleQuoted) {
+		return trimmed.slice(1, -1);
+	}
+
+	return trimmed;
 };
 
 const articles: Article[] = _.orderBy(
@@ -166,12 +166,20 @@ const articlesBySlug = new Map(
 	})
 );
 
+const getArticleBySlug = (slug: string): Article | null => {
+	return articlesBySlug.get(slug) ?? null;
+};
+
 const getArticles = (): Article[] => {
 	return articles;
 };
 
-const getArticleBySlug = (slug: string): Article | null => {
-	return articlesBySlug.get(slug) ?? null;
+const isArticle = (value: unknown): value is Article => {
+	return _.isObject(value) && 'slug' in value;
+};
+
+const isArticleList = (value: unknown): value is Article[] => {
+	return _.isArray(value);
 };
 
 const renderMarkdown = (content: string): string => {
@@ -185,9 +193,13 @@ export {
 	computeReadingTime,
 	getArticleBySlug,
 	getArticles,
-	parseFrontmatter,
+	isArticle,
+	isArticleList,
+	parseMarkdownDocument,
+	parseValue,
 	renderMarkdown,
 	slugFromPath,
-	stripMarkdown
+	stripMarkdown,
+	stripQuotes
 };
 export type { Article };

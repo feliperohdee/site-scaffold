@@ -20,29 +20,37 @@ const buildHeaders = () => {
 	return headers;
 };
 
-const renderStream = async (
-	request: Request
+const renderHtml = async (request: Request): Promise<Response> => {
+	if (!CACHE_ENABLED) {
+		const stream = await renderStream(request);
+
+		return new Response(stream, { headers: buildHeaders() });
+	}
+
+	return renderWithCache(request, r2cache);
+};
+
+const renderResolved = async (
+	route: Route.MatchResult,
+	resolved: Route.Resolved,
+	searchParams: URLSearchParams
 ): Promise<ReadableStream<Uint8Array>> => {
-	const url = new URL(request.url);
-	const route = matchRoute(url.pathname);
-
-	context.store.pathParams = route.pathParams;
-	context.store.searchParams = url.searchParams;
-
-	const data = route.loader ? await route.loader() : null;
 	const hydration: Route.Hydration = {
-		data,
+		data: resolved.data,
+		indexable: resolved.indexable,
+		jsonLd: resolved.jsonLd,
+		meta: resolved.meta,
 		page: route.page,
 		pathParams: route.pathParams,
-		searchParams: url.searchParams.toString()
+		searchParams: searchParams.toString()
 	};
 
 	const stream = await renderToReadableStream(
 		<Document hydration={hydration}>
 			<route.Component
-				data={data}
+				data={resolved.data}
 				pathParams={route.pathParams}
-				searchParams={url.searchParams}
+				searchParams={searchParams}
 			/>
 		</Document>,
 		{
@@ -55,6 +63,19 @@ const renderStream = async (
 	return stream;
 };
 
+const renderStream = async (
+	request: Request
+): Promise<ReadableStream<Uint8Array>> => {
+	const url = new URL(request.url);
+	const route = matchRoute(url.pathname);
+
+	context.store.setPathParams(route.pathParams);
+
+	const resolved = await resolveRoute(route);
+
+	return renderResolved(route, resolved, url.searchParams);
+};
+
 const renderWithCache = async (
 	request: Request,
 	cache: R2Cache
@@ -62,20 +83,57 @@ const renderWithCache = async (
 	const url = new URL(request.url);
 	const route = matchRoute(url.pathname);
 
+	context.store.setPathParams(route.pathParams);
+
 	if (!route.cache) {
-		const stream = await renderStream(request);
+		const resolved = await resolveRoute(route);
+		const stream = await renderResolved(route, resolved, url.searchParams);
 
 		return new Response(stream, { headers: buildHeaders() });
 	}
 
 	const cacheKey = url.toString();
-	const cached = await cache.match(cacheKey);
+
+	// Fast path: routes without cacheScope skip the loader on cache HIT,
+	// preserving today's behavior where every code deploy busts the cache
+	// (via CACHE_VERSION) but a hit avoids the loader entirely.
+	if (!route.cacheScope) {
+		const cached = await cache.match(cacheKey);
+
+		if (cached) {
+			return cached;
+		}
+
+		const resolved = await resolveRoute(route);
+		const stream = await renderResolved(route, resolved, url.searchParams);
+		const [bodyForClient, bodyForCache] = stream.tee();
+
+		waitUntil(
+			(async () => {
+				const bytes = await new Response(bodyForCache).arrayBuffer();
+
+				await cache.put(
+					cacheKey,
+					new Response(bytes, { headers: buildHeaders() })
+				);
+			})()
+		);
+
+		return new Response(bodyForClient, { headers: buildHeaders() });
+	}
+
+	// Scoped path: must run the loader to compute the cache key's version
+	// segment from `data`. Trade-off explicit in the plan — scoped routes
+	// do the loader work on every request to gain deploy-decoupled caching.
+	const resolved = await resolveRoute(route);
+	const scope = route.cacheScope(resolved.data);
+	const cached = await cache.match(cacheKey, scope);
 
 	if (cached) {
 		return cached;
 	}
 
-	const stream = await renderStream(request);
+	const stream = await renderResolved(route, resolved, url.searchParams);
 	const [bodyForClient, bodyForCache] = stream.tee();
 
 	waitUntil(
@@ -84,7 +142,8 @@ const renderWithCache = async (
 
 			await cache.put(
 				cacheKey,
-				new Response(bytes, { headers: buildHeaders() })
+				new Response(bytes, { headers: buildHeaders() }),
+				scope
 			);
 		})()
 	);
@@ -92,15 +151,19 @@ const renderWithCache = async (
 	return new Response(bodyForClient, { headers: buildHeaders() });
 };
 
-const renderHtml = async (request: Request): Promise<Response> => {
-	if (!CACHE_ENABLED) {
-		const stream = await renderStream(request);
+// Resolves loader + meta/jsonLd/indexable for a matched route. Pulled out so
+// `renderWithCache` can compute cacheScope (which needs `data`) without
+// re-running the loader for the actual render.
+const resolveRoute = async (
+	route: Route.MatchResult
+): Promise<Route.Resolved> => {
+	const data = route.loader ? await route.loader() : null;
+	const meta = route.meta ? route.meta(data) : null;
+	const jsonLd = route.jsonLd ? route.jsonLd(data) : null;
+	const indexable = route.indexable ? route.indexable(data) : true;
 
-		return new Response(stream, { headers: buildHeaders() });
-	}
-
-	return renderWithCache(request, r2cache);
+	return { data, indexable, jsonLd, meta };
 };
 
-export { renderStream, renderWithCache };
+export { renderResolved, renderStream, renderWithCache, resolveRoute };
 export default renderHtml;

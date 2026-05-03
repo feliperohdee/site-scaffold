@@ -17,20 +17,24 @@ class R2Cache {
 		this.volatile = options.volatile ?? true;
 	}
 
-	key(url: string): string {
+	key(url: string, version?: string | null): string {
 		const parsed = new URL(url);
 		parsed.searchParams.sort();
 
 		return (
 			_.trimStart(
-				path.join(this.prefix, CACHE_VERSION, parsed.pathname),
+				path.join(
+					this.prefix,
+					version ?? CACHE_VERSION,
+					parsed.pathname
+				),
 				'/'
 			) + parsed.search
 		);
 	}
 
-	async match(url: string): Promise<Response | null> {
-		const key = this.key(url);
+	async match(url: string, version?: string | null): Promise<Response | null> {
+		const key = this.key(url, version);
 		const cacheUrl = `https://r2-cache/${key}`;
 		const volatileCache = this.volatile
 			? await caches.open('r2-cache')
@@ -67,8 +71,12 @@ class R2Cache {
 		return response;
 	}
 
-	async put(url: string, response: Response): Promise<void> {
-		const key = this.key(url);
+	async put(
+		url: string,
+		response: Response,
+		version?: string | null
+	): Promise<void> {
+		const key = this.key(url, version);
 		const cacheUrl = `https://r2-cache/${key}`;
 		const cacheControl = response.headers.get('cache-control') || '';
 		const contentType =
