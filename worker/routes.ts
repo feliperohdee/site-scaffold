@@ -4,7 +4,7 @@ import { SITE_NAME } from '@/constants';
 import collections from '@/libs/pseo/discover-collection';
 import context from '@/worker/context';
 import createRouter from '@/libs/router';
-import pages from '@/libs/pages';
+import pages from '@/libs/discover-pages';
 import registerCollections from '@/libs/pseo/register';
 import {
 	articleCacheScope,

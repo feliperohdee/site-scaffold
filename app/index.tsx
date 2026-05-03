@@ -4,7 +4,7 @@ import { StrictMode } from 'react';
 import { hydrateRoot } from 'react-dom/client';
 
 import Document from '@/app/document';
-import pages from '@/libs/pages';
+import pages from '@/libs/discover-pages';
 
 import type { Route } from '@/libs/router';
 

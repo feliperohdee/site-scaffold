@@ -45,7 +45,7 @@ The client never imports the router engine — only the page components and a JS
 - **React 19** — `renderToReadableStream` for streaming SSR, `hydrateRoot` for full-document hydration, native `<title>`/`<meta>` hoisting (no helmet lib)
 - **`use-request-utils/router`** — pure path-matching engine; lives only in the worker bundle
 - **`AsyncLocalStorage`** — per-request context (`request`, `url`, `pathParams`, `searchParams`, …) consumable from any server helper without prop-drilling
-- **Auto-discovered pages** — every `app/pages/*.tsx` is registered in `libs/pages.ts` via `import.meta.glob`; drop a file, register it once in `worker/routes.ts`, done
+- **Auto-discovered pages** — every `app/pages/*.tsx` is registered in `libs/discover-pages.ts` via `import.meta.glob`; drop a file, register it once in `worker/routes.ts`, done
 - **Loader pattern** — argless server function per route; reads request data from `context.store`; result is JSON-embedded in `<script id="__data">` and rehydrated on the client without a re-fetch
 - **R2** — page cache, keyed by full URL, versioned by build timestamp
 - **Tailwind CSS v4** + `@tailwindcss/typography` — Inter font, custom `--tracking-display` token, bold-headline minimalist base
@@ -164,7 +164,7 @@ Two more places to update by hand (declarative config — can't import from TS):
 
 ### 1. Auto-discovered pages
 
-`libs/pages.ts` globs every component file in `app/pages/` and exports them keyed by filename:
+`libs/discover-pages.ts` globs every component file in `app/pages/` and exports them keyed by filename:
 
 ```ts
 const modules = import.meta.glob<Route.PageComponent>('../app/pages/*.tsx', {
@@ -263,7 +263,7 @@ const hydration: Route.Hydration = {
 `app/index.tsx` is tiny and does **not** import `libs/router.ts`:
 
 ```tsx
-import pages from '@/libs/pages';
+import pages from '@/libs/discover-pages';
 
 const hydration = readHydration();
 const Component = pages[hydration.page] ?? pages['not-found'];
@@ -497,7 +497,7 @@ app/libs/articles.spec.ts        (23 tests)  buildExcerpt, computeReadingTime,
                                               getArticleBySlug, getArticles,
                                               parseMarkdownDocument, renderMarkdown,
                                               slugFromPath, stripMarkdown
-libs/pages.spec.ts               (2 tests)   auto-discovery + value shape
+libs/discover-pages.spec.ts      (2 tests)   auto-discovery + value shape
 libs/router.spec.ts              (14 tests)  createRouter validation, add() guards,
                                               match notFound + cache + loader +
                                               page derivation + pathParams + order

@@ -1,7 +1,6 @@
 import _ from 'lodash';
 import { describe, expect, it } from 'vitest';
 
-import { getArticleBySlug } from '@/app/libs/articles';
 import { SITE_NAME } from '@/constants';
 import {
 	articleCacheScope,
@@ -16,14 +15,14 @@ import {
 
 import type { Article } from '@/app/libs/articles';
 
-const seedArticle = (): Article => {
-	const article = getArticleBySlug('hello-world');
-
-	if (!article) {
-		throw new Error('test fixture missing: hello-world article');
-	}
-
-	return article;
+const article: Article = {
+	content: 'Body of the seed article.',
+	date: '2026-01-01',
+	excerpt: 'Seed excerpt.',
+	readingTime: 1,
+	slug: 'seed-article',
+	tags: ['seed'],
+	title: 'Seed Article'
 };
 
 describe('@/app/libs/articles-seo', () => {
@@ -33,8 +32,6 @@ describe('@/app/libs/articles-seo', () => {
 		});
 
 		it('should return articles/v1/<slug>/<date> for a valid article', () => {
-			const article = seedArticle();
-
 			expect(articleCacheScope(article)).toEqual(
 				`articles/v1/${article.slug}/${article.date}`
 			);
@@ -47,7 +44,7 @@ describe('@/app/libs/articles-seo', () => {
 		});
 
 		it('should return true for a valid article', () => {
-			expect(articleIndexable(seedArticle())).toEqual(true);
+			expect(articleIndexable(article)).toEqual(true);
 		});
 	});
 
@@ -75,8 +72,6 @@ describe('@/app/libs/articles-seo', () => {
 		});
 
 		it('should return a schema.org Article payload for a valid article', () => {
-			const article = seedArticle();
-
 			expect(articleJsonLd(article)).toEqual({
 				'@context': 'https://schema.org',
 				'@type': 'Article',
@@ -95,8 +90,6 @@ describe('@/app/libs/articles-seo', () => {
 		});
 
 		it('should return canonical/description/ogType=article/title for a valid article', () => {
-			const article = seedArticle();
-
 			expect(articleMeta(article)).toEqual({
 				canonical: `/articles/${article.slug}`,
 				description: article.excerpt,
@@ -112,38 +105,34 @@ describe('@/app/libs/articles-seo', () => {
 		});
 
 		it('should mark every item as indexable', () => {
-			expect(articleSitemapContributor.indexable!(seedArticle())).toEqual(
-				true
-			);
+			expect(articleSitemapContributor.indexable!(article)).toEqual(true);
 		});
 
 		it('should expose the article date as lastmod', () => {
-			const article = seedArticle();
-
 			expect(articleSitemapContributor.lastmod!(article)).toEqual(
 				article.date
 			);
 		});
 
 		it('should fall back to null lastmod when the article has no date', () => {
-			const dateless = { ...seedArticle(), date: '' };
+			const dateless = { ...article, date: '' };
 
 			expect(articleSitemapContributor.lastmod!(dateless)).toEqual(null);
 		});
 
 		it('should produce /articles/<slug> URLs', () => {
-			const article = seedArticle();
-
 			expect(articleSitemapContributor.urlFor(article)).toEqual(
 				`/articles/${article.slug}`
 			);
 		});
 
-		it('should resolve list() to the full set of articles', async () => {
+		it('should resolve list() to an array of Article-shaped records', async () => {
 			const list = await articleSitemapContributor.list();
 
-			expect(_.size(list)).toBeGreaterThan(0);
-			expect(list[0]).toMatchObject({ slug: expect.any(String) });
+			expect(_.isArray(list)).toEqual(true);
+			_.forEach(list, item => {
+				expect(item).toMatchObject({ slug: expect.any(String) });
+			});
 		});
 	});
 

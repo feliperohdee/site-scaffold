@@ -1,9 +1,9 @@
 import _ from 'lodash';
 import { describe, expect, it } from 'vitest';
 
-import pages from '@/libs/pages';
+import pages from '@/libs/discover-pages';
 
-describe('@/libs/pages', () => {
+describe('@/libs/discover-pages', () => {
 	it('should auto-register every component file in app/pages and app/pseo/pages keyed by filename', () => {
 		expect(_.sortBy(_.keys(pages))).toEqual([
 			'article',
