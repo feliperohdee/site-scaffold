@@ -3,14 +3,6 @@ import { renderToString } from 'react-dom/server';
 
 import DocumentHead from '@/app/components/document-head';
 
-// it() order mirrors source flow in app/components/document-head.tsx:
-// opted-out branch (meta === null) → robots gate → JsonLd.
-// opted-in branch → title/og:title/og:type/twitter:card → description → og:description
-// → og:image → canonical → robots noindex → JsonLd.
-//
-// Some tests use toEqual on the full HTML string (vs the more common toContain)
-// to assert "this and nothing else" — important when proving the silent / robots-only
-// shapes don't leak any other tags. Keep the brittleness intentionally.
 describe('@/app/components/document-head', () => {
 	describe('opted out (meta === null)', () => {
 		it('should render only the robots noindex tag when indexable is false', () => {
