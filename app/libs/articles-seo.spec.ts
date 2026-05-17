@@ -26,6 +26,12 @@ const article: Article = {
 };
 
 describe('@/app/libs/articles-seo', () => {
+	describe('ARTICLES_VERSION', () => {
+		it('should be a non-empty base-36 hash string', () => {
+			expect(/^[0-9a-z]+$/.test(ARTICLES_VERSION)).toEqual(true);
+		});
+	});
+
 	describe('articleCacheScope', () => {
 		it('should return null for non-article data', () => {
 			expect(articleCacheScope(null)).toEqual(null);
@@ -133,12 +139,6 @@ describe('@/app/libs/articles-seo', () => {
 			_.forEach(list, item => {
 				expect(item).toMatchObject({ slug: expect.any(String) });
 			});
-		});
-	});
-
-	describe('ARTICLES_VERSION', () => {
-		it('should be a non-empty base-36 hash string', () => {
-			expect(/^[0-9a-z]+$/.test(ARTICLES_VERSION)).toEqual(true);
 		});
 	});
 });

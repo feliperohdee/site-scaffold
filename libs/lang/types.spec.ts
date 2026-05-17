@@ -1,3 +1,4 @@
+import _ from 'lodash';
 import { describe, expect, it } from 'vitest';
 
 import { LANGS, isLang } from '@/libs/lang/types';
@@ -19,9 +20,9 @@ describe('@/libs/lang/types', () => {
 
 	describe('isLang', () => {
 		it('should return true for every supported lang', () => {
-			for (const lang of LANGS) {
+			_.forEach(LANGS, lang => {
 				expect(isLang(lang)).toEqual(true);
-			}
+			});
 		});
 
 		it('should return false for unsupported strings', () => {

@@ -67,6 +67,22 @@ const computeReadingTime = (markdown: string): number => {
 	return Math.max(1, Math.round(words / 200));
 };
 
+const getArticleBySlug = (slug: string): Article | null => {
+	return articlesBySlug.get(slug) ?? null;
+};
+
+const getArticles = (): Article[] => {
+	return articles;
+};
+
+const isArticle = (value: unknown): value is Article => {
+	return _.isObject(value) && 'slug' in value;
+};
+
+const isArticleList = (value: unknown): value is Article[] => {
+	return _.isArray(value);
+};
+
 const parseMarkdownDocument = (raw: string): MarkdownDocument => {
 	const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
 
@@ -79,11 +95,11 @@ const parseMarkdownDocument = (raw: string): MarkdownDocument => {
 	const meta: Record<string, string | string[]> = {};
 	const lines = match[1].split(/\r?\n/);
 
-	for (const line of lines) {
+	_.forEach(lines, line => {
 		const colonIndex = line.indexOf(':');
 
 		if (colonIndex === -1) {
-			continue;
+			return;
 		}
 
 		const key = line.slice(0, colonIndex).trim();
@@ -92,7 +108,7 @@ const parseMarkdownDocument = (raw: string): MarkdownDocument => {
 		if (_.size(key) > 0) {
 			meta[key] = parseValue(value);
 		}
-	}
+	});
 
 	const result: MarkdownDocument = { body: match[2], meta };
 
@@ -114,6 +130,12 @@ const parseValue = (raw: string): string | string[] => {
 	}
 
 	return stripQuotes(value);
+};
+
+const renderMarkdown = (content: string): string => {
+	const html = marked.parse(content, { async: false });
+
+	return _.isString(html) ? html : '';
 };
 
 const slugFromPath = (path: string): string => {
@@ -163,29 +185,8 @@ const articlesBySlug = new Map(
 	})
 );
 
-const getArticleBySlug = (slug: string): Article | null => {
-	return articlesBySlug.get(slug) ?? null;
-};
-
-const getArticles = (): Article[] => {
-	return articles;
-};
-
-const isArticle = (value: unknown): value is Article => {
-	return _.isObject(value) && 'slug' in value;
-};
-
-const isArticleList = (value: unknown): value is Article[] => {
-	return _.isArray(value);
-};
-
-const renderMarkdown = (content: string): string => {
-	const html = marked.parse(content, { async: false });
-
-	return _.isString(html) ? html : '';
-};
-
 export {
+	buildArticle,
 	buildExcerpt,
 	computeReadingTime,
 	getArticleBySlug,

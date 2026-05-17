@@ -28,12 +28,12 @@ describe('@/libs/safe-json', () => {
 		});
 
 		it('should escape U+2028 and U+2029 line separators', () => {
-			const result = safeJsonStringify({ x: 'a b c' });
+			const result = safeJsonStringify({ x: 'a\u2028b\u2029c' });
 
 			expect(result).toContain('\\u2028');
 			expect(result).toContain('\\u2029');
-			expect(result).not.toContain(' ');
-			expect(result).not.toContain(' ');
+			expect(result).not.toContain('\u2028');
+			expect(result).not.toContain('\u2029');
 		});
 
 		it('should serialize null when given undefined', () => {

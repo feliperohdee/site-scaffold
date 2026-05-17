@@ -1,5 +1,5 @@
 import _ from 'lodash';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import type { Sitemap } from '@/libs/sitemap';
 import {
@@ -9,6 +9,7 @@ import {
 	buildSitemapForContributor,
 	buildSitemapIndex,
 	escapeXml,
+	getContributor,
 	getContributors,
 	handleSitemapRequest,
 	registerSitemap,
@@ -45,10 +46,6 @@ const articleContributor = (): Sitemap.Contributor<Article> => {
 };
 
 describe('@/libs/sitemap', () => {
-	beforeEach(() => {
-		__resetForTests();
-	});
-
 	afterEach(() => {
 		__resetForTests();
 	});
@@ -193,6 +190,45 @@ describe('@/libs/sitemap', () => {
 	describe('escapeXml', () => {
 		it('should escape XML metacharacters', () => {
 			expect(escapeXml(`&<>"'`)).toEqual('&amp;&lt;&gt;&quot;&apos;');
+		});
+	});
+
+	describe('getContributor', () => {
+		it('should return the registered contributor by name', () => {
+			registerSitemap(articleContributor());
+
+			expect(getContributor('articles')?.name).toEqual('articles');
+		});
+
+		it('should return null when no contributor is registered under that name', () => {
+			expect(getContributor('missing')).toEqual(null);
+		});
+	});
+
+	describe('getContributors', () => {
+		it('should return an empty array when no contributors are registered', () => {
+			expect(getContributors()).toEqual([]);
+		});
+
+		it('should return every registered contributor in insertion order', () => {
+			registerSitemap(articleContributor());
+			registerSitemap<{ slug: string }>({
+				list: () => {
+					return [{ slug: 'foo' }];
+				},
+				name: 'pages',
+				urlFor: item => {
+					return `/pages/${item.slug}`;
+				}
+			});
+
+			const contributors = getContributors();
+
+			expect(
+				_.map(contributors, c => {
+					return c.name;
+				})
+			).toEqual(['articles', 'pages']);
 		});
 	});
 

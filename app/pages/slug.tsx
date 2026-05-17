@@ -1,11 +1,7 @@
 import { CACHE_HEADER } from '@/constants';
+import type { Route } from '@/libs/router';
 
-const Slug = ({
-	pathParams
-}: {
-	pathParams: Record<string, unknown>;
-	searchParams: URLSearchParams;
-}) => {
+const Slug = ({ pathParams }: Route.PageProps) => {
 	const slug = `${pathParams.slug ?? ''}`;
 
 	return (

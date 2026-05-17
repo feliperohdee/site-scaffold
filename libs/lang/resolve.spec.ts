@@ -13,35 +13,39 @@ vi.mock('@/libs/lang/infer', () => {
 });
 
 describe('@/libs/lang/resolve', () => {
-	beforeEach(() => {
-		mockInferLang.mockReset().mockReturnValue('en-us');
-	});
+	describe('resolveLang', () => {
+		beforeEach(() => {
+			mockInferLang.mockReset().mockReturnValue('en-us');
+		});
 
-	it('should return the URL lang when it matches a supported language', () => {
-		expect(resolveLang({ country: 'us', urlLang: 'pt-br' })).toEqual(
-			'pt-br'
-		);
-		expect(mockInferLang).not.toHaveBeenCalled();
-	});
+		it('should return the URL lang when it matches a supported language', () => {
+			expect(resolveLang({ country: 'us', urlLang: 'pt-br' })).toEqual(
+				'pt-br'
+			);
+			expect(mockInferLang).not.toHaveBeenCalled();
+		});
 
-	it('should fall back to inferLang(country) when urlLang is invalid', () => {
-		mockInferLang.mockReturnValue('de-de');
+		it('should fall back to inferLang(country) when urlLang is invalid', () => {
+			mockInferLang.mockReturnValue('de-de');
 
-		expect(resolveLang({ country: 'de', urlLang: 'kl-kl' })).toEqual(
-			'de-de'
-		);
-		expect(mockInferLang).toHaveBeenCalledWith('de');
-	});
+			expect(resolveLang({ country: 'de', urlLang: 'kl-kl' })).toEqual(
+				'de-de'
+			);
+			expect(mockInferLang).toHaveBeenCalledWith('de');
+		});
 
-	it('should fall back to inferLang(country) when urlLang is null', () => {
-		mockInferLang.mockReturnValue('fr-fr');
+		it('should fall back to inferLang(country) when urlLang is null', () => {
+			mockInferLang.mockReturnValue('fr-fr');
 
-		expect(resolveLang({ country: 'fr', urlLang: null })).toEqual('fr-fr');
-		expect(mockInferLang).toHaveBeenCalledWith('fr');
-	});
+			expect(resolveLang({ country: 'fr', urlLang: null })).toEqual(
+				'fr-fr'
+			);
+			expect(mockInferLang).toHaveBeenCalledWith('fr');
+		});
 
-	it('should fall back to inferLang(country) when urlLang is empty', () => {
-		expect(resolveLang({ country: '', urlLang: '' })).toEqual('en-us');
-		expect(mockInferLang).toHaveBeenCalledWith('');
+		it('should fall back to inferLang(country) when urlLang is empty', () => {
+			expect(resolveLang({ country: '', urlLang: '' })).toEqual('en-us');
+			expect(mockInferLang).toHaveBeenCalledWith('');
+		});
 	});
 });

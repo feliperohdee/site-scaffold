@@ -1,8 +1,8 @@
 import _ from 'lodash';
 import { describe, expect, it } from 'vitest';
 
-import type { Article } from '@/app/libs/articles';
 import {
+	buildArticle,
 	buildExcerpt,
 	computeReadingTime,
 	getArticleBySlug,
@@ -17,17 +17,42 @@ import {
 	stripQuotes
 } from '@/app/libs/articles';
 
-const article: Article = {
-	content: 'Body of the seed article.',
-	date: '2026-01-01',
-	excerpt: 'Seed excerpt.',
-	readingTime: 1,
-	slug: 'seed-article',
-	tags: ['seed'],
-	title: 'Seed Article'
-};
-
 describe('@/app/libs/articles', () => {
+	describe('buildArticle', () => {
+		it('should fall back to filename and defaults when frontmatter is missing', () => {
+			const result = buildArticle(
+				'../content/articles/from-path.md',
+				'Body without frontmatter.'
+			);
+
+			expect(result).toEqual({
+				content: 'Body without frontmatter.',
+				date: '',
+				excerpt: 'Body without frontmatter.',
+				readingTime: 1,
+				slug: 'from-path',
+				tags: [],
+				title: 'from-path'
+			});
+		});
+
+		it('should use frontmatter values when present and honor the excerpt override', () => {
+			const raw =
+				'---\ntitle: Custom Title\nslug: custom-slug\ndate: 2026-05-02\ntags: [react, web]\nexcerpt: Custom excerpt\n---\nBody content.';
+			const result = buildArticle('../content/articles/ignored.md', raw);
+
+			expect(result).toEqual({
+				content: 'Body content.',
+				date: '2026-05-02',
+				excerpt: 'Custom excerpt',
+				readingTime: 1,
+				slug: 'custom-slug',
+				tags: ['react', 'web'],
+				title: 'Custom Title'
+			});
+		});
+	});
+
 	describe('buildExcerpt', () => {
 		it('should use the override when provided', () => {
 			const result = buildExcerpt(
@@ -70,19 +95,15 @@ describe('@/app/libs/articles', () => {
 		it('should return the article matching its own slug for any discovered article', () => {
 			const first = getArticles()[0];
 
-			if (!first) {
-				return;
-			}
-
 			expect(getArticleBySlug(first.slug)?.slug).toEqual(first.slug);
 		});
 
 		it('should return null when no article matches', () => {
-			const article = getArticleBySlug(
+			const result = getArticleBySlug(
 				'this-slug-cannot-exist-in-production'
 			);
 
-			expect(article).toEqual(null);
+			expect(result).toEqual(null);
 		});
 	});
 
@@ -90,10 +111,7 @@ describe('@/app/libs/articles', () => {
 		it('should expose Article-shaped records with parsed frontmatter', () => {
 			const articles = getArticles();
 
-			if (_.isEmpty(articles)) {
-				return;
-			}
-
+			expect(_.size(articles)).toBeGreaterThan(0);
 			_.forEach(articles, article => {
 				expect(article).toMatchObject({
 					content: expect.any(String),
@@ -143,10 +161,6 @@ describe('@/app/libs/articles', () => {
 		it('should return true for objects with a slug field', () => {
 			expect(isArticle({ slug: 'hello' })).toEqual(true);
 		});
-
-		it('should return true for a real Article fixture', () => {
-			expect(isArticle(article)).toEqual(true);
-		});
 	});
 
 	describe('isArticleList', () => {
@@ -166,10 +180,6 @@ describe('@/app/libs/articles', () => {
 
 		it('should return true for an empty array', () => {
 			expect(isArticleList([])).toEqual(true);
-		});
-
-		it('should return true for a real Article list', () => {
-			expect(isArticleList(getArticles())).toEqual(true);
 		});
 	});
 
@@ -210,21 +220,23 @@ describe('@/app/libs/articles', () => {
 
 			expect(result.meta).toEqual({ title: 'Hello' });
 		});
+
+		it('should parse frontmatter with CRLF line endings', () => {
+			const result = parseMarkdownDocument(
+				'---\r\ntitle: Hello\r\ndate: 2026-05-02\r\n---\r\nBody.'
+			);
+
+			expect(result).toEqual({
+				body: 'Body.',
+				meta: {
+					date: '2026-05-02',
+					title: 'Hello'
+				}
+			});
+		});
 	});
 
 	describe('parseValue', () => {
-		it('should return a trimmed plain string when no brackets are present', () => {
-			expect(parseValue('  hello  ')).toEqual('hello');
-		});
-
-		it('should strip surrounding double quotes from a plain string', () => {
-			expect(parseValue('"Quoted Title"')).toEqual('Quoted Title');
-		});
-
-		it('should strip surrounding single quotes from a plain string', () => {
-			expect(parseValue("'Single'")).toEqual('Single');
-		});
-
 		it('should parse bracketed comma-separated values into a string array', () => {
 			expect(parseValue('[react, web, "with space"]')).toEqual([
 				'react',
@@ -251,6 +263,18 @@ describe('@/app/libs/articles', () => {
 
 		it('should treat an unterminated bracket as a plain string value', () => {
 			expect(parseValue('[unfinished')).toEqual('[unfinished');
+		});
+
+		it('should return a trimmed plain string when no brackets are present', () => {
+			expect(parseValue('  hello  ')).toEqual('hello');
+		});
+
+		it('should strip surrounding double quotes from a plain string', () => {
+			expect(parseValue('"Quoted Title"')).toEqual('Quoted Title');
+		});
+
+		it('should strip surrounding single quotes from a plain string', () => {
+			expect(parseValue("'Single'")).toEqual('Single');
 		});
 	});
 
@@ -299,6 +323,12 @@ describe('@/app/libs/articles', () => {
 			expect(result).toEqual('See the docs.');
 		});
 
+		it('should unwrap inline code', () => {
+			const result = stripMarkdown('use `npm install` to start');
+
+			expect(result).toEqual('use npm install to start');
+		});
+
 		it('should strip headings, list bullets, blockquotes, and emphasis markers', () => {
 			const raw =
 				'# Title\n\n> A quote\n\n- one\n- two\n\n*bold* _italic_ ~strike~';
@@ -318,19 +348,9 @@ describe('@/app/libs/articles', () => {
 
 			expect(result).toEqual('first second tenth');
 		});
-
-		it('should unwrap inline code', () => {
-			const result = stripMarkdown('use `npm install` to start');
-
-			expect(result).toEqual('use npm install to start');
-		});
 	});
 
 	describe('stripQuotes', () => {
-		it('should trim whitespace when no quotes are present', () => {
-			expect(stripQuotes('  hello  ')).toEqual('hello');
-		});
-
 		it('should strip surrounding double quotes', () => {
 			expect(stripQuotes('"hello"')).toEqual('hello');
 		});
@@ -347,6 +367,10 @@ describe('@/app/libs/articles', () => {
 		it('should leave a value with only one quote intact', () => {
 			expect(stripQuotes('"hello')).toEqual('"hello');
 			expect(stripQuotes("hello'")).toEqual("hello'");
+		});
+
+		it('should trim whitespace when no quotes are present', () => {
+			expect(stripQuotes('  hello  ')).toEqual('hello');
 		});
 
 		it('should return an empty string for empty input', () => {

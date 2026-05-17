@@ -8,7 +8,8 @@ import type { Pseo } from '@/libs/pseo/types';
 import type { Route } from '@/libs/router';
 import registerCollections, {
 	buildItemCacheVersion,
-	buildItemPath
+	buildItemPath,
+	registerCollection
 } from '@/libs/pseo/register';
 import {
 	__resetForTests as resetSitemap,
@@ -140,6 +141,52 @@ describe('@/libs/pseo/register', () => {
 			const item: { slug?: string } = {};
 
 			expect(buildItemPath('/x/:slug', item, 'slug')).toEqual('/x/');
+		});
+	});
+
+	describe('registerCollection', () => {
+		beforeEach(() => {
+			resetSitemap();
+		});
+
+		afterEach(() => {
+			resetSitemap();
+		});
+
+		it('should register the item route on the router', () => {
+			const router = createRouter(pages).notFound({
+				Component: NotFoundComponent
+			});
+			registerCollection(router, buildDefinition());
+
+			const match = router.match('/best-coffee/lisbon');
+
+			expect(match.Component).toBe(ItemComponent);
+			expect(match.pathParams).toEqual({ slug: 'lisbon' });
+		});
+
+		it('should register the hub route on the router when provided', () => {
+			const router = createRouter(pages).notFound({
+				Component: NotFoundComponent
+			});
+			registerCollection(router, buildDefinition());
+
+			const match = router.match('/best-coffee');
+
+			expect(match.Component).toBe(HubComponent);
+		});
+
+		it('should register a sitemap contributor with the collection name', () => {
+			const router = createRouter(pages).notFound({
+				Component: NotFoundComponent
+			});
+			registerCollection(router, buildDefinition());
+
+			expect(
+				_.map(getContributors(), c => {
+					return c.name;
+				})
+			).toEqual(['best-coffee']);
 		});
 	});
 

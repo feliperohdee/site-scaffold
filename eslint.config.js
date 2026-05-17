@@ -19,15 +19,15 @@ export default tseslint.config(
 		},
 		rules: {
 			...reactHooks.configs.recommended.rules,
-			'no-async-promise-executor': 'off',
 			'@typescript-eslint/ban-ts-comment': 'off',
 			'@typescript-eslint/no-empty-object-type': 'off',
 			'@typescript-eslint/no-explicit-any': 'off',
-			'@typescript-eslint/no-unsafe-function-type': 'off',
 			'@typescript-eslint/no-namespace': 'off',
+			'@typescript-eslint/no-unsafe-function-type': 'off',
+			'no-async-promise-executor': 'off',
+			'no-case-declarations': 'off',
 			'prefer-const': 'off',
-			'prefer-spread': 'off',
-			'no-case-declarations': 'off'
+			'prefer-spread': 'off'
 		}
 	}
 );

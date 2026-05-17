@@ -4,8 +4,8 @@ import { renderToString } from 'react-dom/server';
 import DocumentHead from '@/app/components/document-head';
 
 describe('@/app/components/document-head', () => {
-	describe('opted out (meta === null)', () => {
-		it('should render only the robots noindex tag when indexable is false', () => {
+	describe('DocumentHead', () => {
+		it('should render only the robots noindex tag when meta is null and indexable is false', () => {
 			const html = renderToString(
 				<DocumentHead
 					indexable={false}
@@ -19,7 +19,7 @@ describe('@/app/components/document-head', () => {
 			);
 		});
 
-		it('should still emit JSON-LD even when meta is null (route can declare jsonLd alone)', () => {
+		it('should still emit JSON-LD when meta is null (route can declare jsonLd alone)', () => {
 			const html = renderToString(
 				<DocumentHead
 					indexable={true}
@@ -32,7 +32,7 @@ describe('@/app/components/document-head', () => {
 			expect(html).toContain('"@type":"WebSite"');
 		});
 
-		it('should render nothing when both branches stay silent (indexable true, jsonLd null)', () => {
+		it('should render nothing when meta is null, indexable is true, and jsonLd is null', () => {
 			const html = renderToString(
 				<DocumentHead
 					indexable={true}
@@ -43,9 +43,7 @@ describe('@/app/components/document-head', () => {
 
 			expect(html).toEqual('');
 		});
-	});
 
-	describe('opted in (meta provided)', () => {
 		it('should emit title + og:title + og:type=website + twitter:card for a minimal meta', () => {
 			const html = renderToString(
 				<DocumentHead
