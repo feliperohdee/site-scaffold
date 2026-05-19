@@ -66,6 +66,7 @@ namespace Route {
 		jsonLd: ((data: Data) => unknown) | null;
 		loader: Loader | null;
 		meta: ((data: Data) => Meta | null) | null;
+		notFound: boolean;
 		page: Page;
 		pathParams: Record<string, unknown>;
 	};
@@ -126,6 +127,7 @@ const createRouter = (
 			jsonLd: notFoundHandler.jsonLd ?? null,
 			loader: notFoundHandler.loader ?? null,
 			meta: notFoundHandler.meta ?? null,
+			notFound: true,
 			page,
 			pathParams: {}
 		};
@@ -172,6 +174,7 @@ const createRouter = (
 				jsonLd: match.handler.jsonLd ?? null,
 				loader: match.handler.loader ?? null,
 				meta: match.handler.meta ?? null,
+				notFound: false,
 				page: componentToPage.get(match.handler.Component) ?? '',
 				pathParams: match.pathParams
 			};

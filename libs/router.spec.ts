@@ -111,9 +111,19 @@ describe('@/libs/router', () => {
 			expect(result.jsonLd).toEqual(null);
 			expect(result.loader).toEqual(null);
 			expect(result.meta).toEqual(null);
+			expect(result.notFound).toEqual(true);
 			expect(result.page).toEqual('not-found');
 			expect(result.pathParams).toEqual({});
 			expect(result.indexable!(null)).toEqual(false);
+		});
+
+		it('should mark MatchResult with notFound: false for routes that matched a registered handler', () => {
+			const router = createRouter(pages)
+				.notFound({ Component: NotFoundComponent })
+				.add('/', { Component: HomeComponent });
+			const result = router.match('/');
+
+			expect(result.notFound).toEqual(false);
 		});
 
 		it('should expose the meta thunk for the not-found fallback when notFound() handler provides one', () => {

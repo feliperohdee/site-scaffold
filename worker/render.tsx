@@ -22,9 +22,12 @@ const buildHeaders = () => {
 
 const renderHtml = async (request: Request): Promise<Response> => {
 	if (!CACHE_ENABLED) {
-		const stream = await renderStream(request);
+		const { route, stream } = await renderStream(request);
 
-		return new Response(stream, { headers: buildHeaders() });
+		return new Response(stream, {
+			headers: buildHeaders(),
+			status: route.notFound ? 404 : 200
+		});
 	}
 
 	return renderWithCache(request, r2cache);
@@ -65,15 +68,16 @@ const renderResolved = async (
 
 const renderStream = async (
 	request: Request
-): Promise<ReadableStream<Uint8Array>> => {
+): Promise<{ route: Route.MatchResult; stream: ReadableStream<Uint8Array> }> => {
 	const url = new URL(request.url);
 	const route = matchRoute(url.pathname);
 
 	context.store.setPathParams(route.pathParams);
 
 	const resolved = await resolveRoute(route);
+	const stream = await renderResolved(route, resolved, url.searchParams);
 
-	return renderResolved(route, resolved, url.searchParams);
+	return { route, stream };
 };
 
 const renderWithCache = async (
@@ -85,11 +89,16 @@ const renderWithCache = async (
 
 	context.store.setPathParams(route.pathParams);
 
-	if (!route.cache) {
+	// 404 responses bypass the R2 cache entirely — keeps negative results
+	// from polluting the cache and lets every unmatched URL re-render fresh.
+	if (!route.cache || route.notFound) {
 		const resolved = await resolveRoute(route);
 		const stream = await renderResolved(route, resolved, url.searchParams);
 
-		return new Response(stream, { headers: buildHeaders() });
+		return new Response(stream, {
+			headers: buildHeaders(),
+			status: route.notFound ? 404 : 200
+		});
 	}
 
 	const cacheKey = url.toString();

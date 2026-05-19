@@ -74,6 +74,7 @@ const buildMatch = (
 		meta: () => {
 			return { title: STUB_TITLE };
 		},
+		notFound: false,
 		page: STUB_PAGE,
 		pathParams: {}
 	};
@@ -171,6 +172,26 @@ describe('@/worker/render', () => {
 			expect(matchSpy).toHaveBeenCalledWith('https://example.com/foo');
 		});
 
+		it('should respond with status 200 for routes that matched a registered handler', async () => {
+			const response = await inContext(
+				buildRequest('https://example.com/'),
+				renderHtml
+			);
+
+			expect(response.status).toEqual(200);
+		});
+
+		it('should respond with status 404 when the matched route is the not-found fallback', async () => {
+			mockMatchRoute.mockReturnValue(buildMatch({ notFound: true }));
+
+			const response = await inContext(
+				buildRequest('https://example.com/no-such-path'),
+				renderHtml
+			);
+
+			expect(response.status).toEqual(404);
+		});
+
 		afterEach(() => {
 			vi.restoreAllMocks();
 		});
@@ -237,7 +258,7 @@ describe('@/worker/render', () => {
 
 	describe('renderStream', () => {
 		it('should render the matched route Component', async () => {
-			const stream = await inContext(
+			const { stream } = await inContext(
 				buildRequest('https://example.com/'),
 				renderStream
 			);
@@ -252,7 +273,7 @@ describe('@/worker/render', () => {
 				buildMatch({ pathParams: { id: 'abc' } })
 			);
 
-			const stream = await inContext(
+			const { stream } = await inContext(
 				buildRequest('https://example.com/with-loader/abc'),
 				renderStream
 			);
@@ -268,16 +289,18 @@ describe('@/worker/render', () => {
 					indexable: () => {
 						return false;
 					},
+					notFound: true,
 					page: STUB_NOT_FOUND_PAGE
 				})
 			);
 
-			const stream = await inContext(
+			const { route, stream } = await inContext(
 				buildRequest('https://example.com/no-match'),
 				renderStream
 			);
 			const body = await drainStream(stream);
 
+			expect(route.notFound).toEqual(true);
 			expect(body).toContain(STUB_NOT_FOUND_PAGE);
 			expect(readHydration(body)).toMatchObject({
 				data: null,
@@ -289,7 +312,7 @@ describe('@/worker/render', () => {
 		});
 
 		it('should serialize searchParams into the hydration meta', async () => {
-			const stream = await inContext(
+			const { stream } = await inContext(
 				buildRequest('https://example.com/?a=1&b=hello+world'),
 				renderStream
 			);
@@ -301,7 +324,7 @@ describe('@/worker/render', () => {
 		});
 
 		it('should produce HTML starting with <!DOCTYPE html>', async () => {
-			const stream = await inContext(
+			const { stream } = await inContext(
 				buildRequest('https://example.com/'),
 				renderStream
 			);
@@ -311,7 +334,7 @@ describe('@/worker/render', () => {
 		});
 
 		it('should include the root mount node', async () => {
-			const stream = await inContext(
+			const { stream } = await inContext(
 				buildRequest('https://example.com/'),
 				renderStream
 			);
@@ -321,7 +344,7 @@ describe('@/worker/render', () => {
 		});
 
 		it('should include the bootstrap module script tag pointing at the client entry', async () => {
-			const stream = await inContext(
+			const { stream } = await inContext(
 				buildRequest('https://example.com/'),
 				renderStream
 			);
@@ -335,7 +358,7 @@ describe('@/worker/render', () => {
 		});
 
 		it('should embed a __data application/json script', async () => {
-			const stream = await inContext(
+			const { stream } = await inContext(
 				buildRequest('https://example.com/'),
 				renderStream
 			);
@@ -347,7 +370,7 @@ describe('@/worker/render', () => {
 		});
 
 		it('should hoist <title> into <head>', async () => {
-			const stream = await inContext(
+			const { stream } = await inContext(
 				buildRequest('https://example.com/'),
 				renderStream
 			);
@@ -386,6 +409,21 @@ describe('@/worker/render', () => {
 			expect(matchSpy).not.toHaveBeenCalled();
 			expect(putSpy).not.toHaveBeenCalled();
 			expect(body).toContain(STUB_BODY_MARKER);
+		});
+
+		it('should bypass the cache and respond with status 404 when the matched route is the not-found fallback', async () => {
+			mockMatchRoute.mockReturnValue(buildMatch({ notFound: true }));
+
+			const response = await inContext(
+				buildRequest('https://example.com/no-such-path'),
+				req => {
+					return renderWithCache(req, cache);
+				}
+			);
+
+			expect(response.status).toEqual(404);
+			expect(matchSpy).not.toHaveBeenCalled();
+			expect(putSpy).not.toHaveBeenCalled();
 		});
 
 		it('should look up the cache by the full URL including query string', async () => {
