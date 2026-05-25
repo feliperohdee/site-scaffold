@@ -68,7 +68,10 @@ const renderResolved = async (
 
 const renderStream = async (
 	request: Request
-): Promise<{ route: Route.MatchResult; stream: ReadableStream<Uint8Array> }> => {
+): Promise<{
+	route: Route.MatchResult;
+	stream: ReadableStream<Uint8Array>;
+}> => {
 	const url = new URL(request.url);
 	const route = matchRoute(url.pathname);
 

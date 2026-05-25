@@ -11,7 +11,7 @@ type Article = {
 	title: string;
 };
 
-type MarkdownDocument = {
+type Frontmatter = {
 	body: string;
 	meta: Record<string, string | string[]>;
 };
@@ -26,7 +26,7 @@ const modules: Record<string, string> = import.meta.glob(
 );
 
 const buildArticle = (path: string, raw: string): Article => {
-	const { body, meta } = parseMarkdownDocument(raw);
+	const { body, meta } = parseFrontmatter(raw);
 	const fileSlug = slugFromPath(path);
 	const excerptOverride = _.isString(meta.excerpt) ? meta.excerpt : null;
 	const slug = _.isString(meta.slug) ? meta.slug : fileSlug;
@@ -75,6 +75,27 @@ const getArticles = (): Article[] => {
 	return articles;
 };
 
+const injectHeadingIds = (html: string): string => {
+	const seen = new Map<string, number>();
+
+	return html.replace(
+		/<h([1-6])>([\s\S]*?)<\/h\1>/g,
+		(_match, level, inner) => {
+			const base = slugifyHeading(inner);
+
+			if (!base) {
+				return `<h${level}>${inner}</h${level}>`;
+			}
+
+			const count = seen.get(base) ?? 0;
+			seen.set(base, count + 1);
+			const id = count === 0 ? base : `${base}-${count}`;
+
+			return `<h${level} id="${id}">${inner}</h${level}>`;
+		}
+	);
+};
+
 const isArticle = (value: unknown): value is Article => {
 	return _.isObject(value) && 'slug' in value;
 };
@@ -83,11 +104,11 @@ const isArticleList = (value: unknown): value is Article[] => {
 	return _.isArray(value);
 };
 
-const parseMarkdownDocument = (raw: string): MarkdownDocument => {
+const parseFrontmatter = (raw: string): Frontmatter => {
 	const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
 
 	if (!match) {
-		const result: MarkdownDocument = { body: raw, meta: {} };
+		const result: Frontmatter = { body: raw, meta: {} };
 
 		return result;
 	}
@@ -110,7 +131,7 @@ const parseMarkdownDocument = (raw: string): MarkdownDocument => {
 		}
 	});
 
-	const result: MarkdownDocument = { body: match[2], meta };
+	const result: Frontmatter = { body: match[2], meta };
 
 	return result;
 };
@@ -135,13 +156,24 @@ const parseValue = (raw: string): string | string[] => {
 const renderMarkdown = (content: string): string => {
 	const html = marked.parse(content, { async: false });
 
-	return _.isString(html) ? html : '';
+	return _.isString(html) ? injectHeadingIds(html) : '';
 };
 
 const slugFromPath = (path: string): string => {
 	const file = _.last(path.split('/')) ?? '';
 
 	return file.replace(/\.md$/, '');
+};
+
+const slugifyHeading = (text: string): string => {
+	return text
+		.toLowerCase()
+		.replace(/<[^>]+>/g, '')
+		.replace(/&[a-z]+;/g, '')
+		.replace(/[^a-z0-9\s_-]/g, '')
+		.trim()
+		.replace(/\s+/g, '-')
+		.replace(/-+/g, '-');
 };
 
 const stripMarkdown = (markdown: string): string => {
@@ -191,12 +223,14 @@ export {
 	computeReadingTime,
 	getArticleBySlug,
 	getArticles,
+	injectHeadingIds,
 	isArticle,
 	isArticleList,
-	parseMarkdownDocument,
+	parseFrontmatter,
 	parseValue,
 	renderMarkdown,
 	slugFromPath,
+	slugifyHeading,
 	stripMarkdown,
 	stripQuotes
 };

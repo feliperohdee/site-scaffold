@@ -7,12 +7,14 @@ import {
 	computeReadingTime,
 	getArticleBySlug,
 	getArticles,
+	injectHeadingIds,
 	isArticle,
 	isArticleList,
-	parseMarkdownDocument,
+	parseFrontmatter,
 	parseValue,
 	renderMarkdown,
 	slugFromPath,
+	slugifyHeading,
 	stripMarkdown,
 	stripQuotes
 } from '@/app/libs/articles';
@@ -139,6 +141,40 @@ describe('@/app/libs/articles', () => {
 		});
 	});
 
+	describe('injectHeadingIds', () => {
+		it('should add slugified ids to headings', () => {
+			const result = injectHeadingIds(
+				'<h1>Hello World</h1><h2>Sub Heading</h2>'
+			);
+
+			expect(result).toEqual(
+				'<h1 id="hello-world">Hello World</h1><h2 id="sub-heading">Sub Heading</h2>'
+			);
+		});
+
+		it('should leave headings untouched when the slug would be empty', () => {
+			const result = injectHeadingIds('<h2>!!!</h2>');
+
+			expect(result).toEqual('<h2>!!!</h2>');
+		});
+
+		it('should suffix duplicate slugs with an incrementing counter', () => {
+			const result = injectHeadingIds(
+				'<h2>Notes</h2><h2>Notes</h2><h2>Notes</h2>'
+			);
+
+			expect(result).toEqual(
+				'<h2 id="notes">Notes</h2><h2 id="notes-1">Notes</h2><h2 id="notes-2">Notes</h2>'
+			);
+		});
+
+		it('should leave non-heading content untouched', () => {
+			const result = injectHeadingIds('<p>just a paragraph</p>');
+
+			expect(result).toEqual('<p>just a paragraph</p>');
+		});
+	});
+
 	describe('isArticle', () => {
 		it('should return false for null', () => {
 			expect(isArticle(null)).toEqual(false);
@@ -183,9 +219,9 @@ describe('@/app/libs/articles', () => {
 		});
 	});
 
-	describe('parseMarkdownDocument', () => {
+	describe('parseFrontmatter', () => {
 		it('should return the raw body when no frontmatter delimiters are present', () => {
-			const result = parseMarkdownDocument('# Just a heading\n\nBody.');
+			const result = parseFrontmatter('# Just a heading\n\nBody.');
 
 			expect(result).toEqual({
 				body: '# Just a heading\n\nBody.',
@@ -194,7 +230,7 @@ describe('@/app/libs/articles', () => {
 		});
 
 		it('should split frontmatter from the body', () => {
-			const result = parseMarkdownDocument(
+			const result = parseFrontmatter(
 				'---\ntitle: Hello\n---\nBody here.'
 			);
 
@@ -203,7 +239,7 @@ describe('@/app/libs/articles', () => {
 		});
 
 		it('should ignore lines without a colon', () => {
-			const result = parseMarkdownDocument(
+			const result = parseFrontmatter(
 				'---\ntitle: Hello\nthis is junk\ndate: 2026-05-02\n---\n'
 			);
 
@@ -214,7 +250,7 @@ describe('@/app/libs/articles', () => {
 		});
 
 		it('should ignore lines whose key is empty after trimming', () => {
-			const result = parseMarkdownDocument(
+			const result = parseFrontmatter(
 				'---\ntitle: Hello\n   : orphan\n---\n'
 			);
 
@@ -222,7 +258,7 @@ describe('@/app/libs/articles', () => {
 		});
 
 		it('should parse frontmatter with CRLF line endings', () => {
-			const result = parseMarkdownDocument(
+			const result = parseFrontmatter(
 				'---\r\ntitle: Hello\r\ndate: 2026-05-02\r\n---\r\nBody.'
 			);
 
@@ -279,12 +315,12 @@ describe('@/app/libs/articles', () => {
 	});
 
 	describe('renderMarkdown', () => {
-		it('should render headings, emphasis, and code into HTML', () => {
+		it('should render headings with injected ids, emphasis, and code into HTML', () => {
 			const html = renderMarkdown(
 				'# Title\n\nHello **world** and `code`.'
 			);
 
-			expect(html).toContain('<h1>Title</h1>');
+			expect(html).toContain('<h1 id="title">Title</h1>');
 			expect(html).toContain('<strong>world</strong>');
 			expect(html).toContain('<code>code</code>');
 		});
@@ -303,6 +339,40 @@ describe('@/app/libs/articles', () => {
 
 		it('should handle paths with no directory prefix', () => {
 			expect(slugFromPath('post.md')).toEqual('post');
+		});
+	});
+
+	describe('slugifyHeading', () => {
+		it('should lowercase and dasherize spaces', () => {
+			expect(slugifyHeading('Hello World')).toEqual('hello-world');
+		});
+
+		it('should strip nested HTML tags before slugifying', () => {
+			expect(slugifyHeading('Hello <em>World</em>')).toEqual(
+				'hello-world'
+			);
+		});
+
+		it('should strip HTML entities before slugifying', () => {
+			expect(slugifyHeading('Tom &amp; Jerry')).toEqual('tom-jerry');
+		});
+
+		it('should drop characters outside [a-z0-9 _-]', () => {
+			expect(slugifyHeading('Hello, World!')).toEqual('hello-world');
+		});
+
+		it('should preserve underscores and existing hyphens', () => {
+			expect(slugifyHeading('foo_bar-baz')).toEqual('foo_bar-baz');
+		});
+
+		it('should collapse consecutive whitespace and hyphens', () => {
+			expect(slugifyHeading('Hello   ---   World')).toEqual(
+				'hello-world'
+			);
+		});
+
+		it('should return an empty string when no slug characters remain', () => {
+			expect(slugifyHeading('!!!')).toEqual('');
 		});
 	});
 
