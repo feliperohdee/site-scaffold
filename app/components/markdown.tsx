@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { renderMarkdown } from '@/app/libs/articles';
 
 const baseClassName =
@@ -10,13 +12,18 @@ const Markdown = ({
 	className?: string;
 	content: string;
 }) => {
-	const html = renderMarkdown(content);
+	const { html, mergedClassName } = useMemo(() => {
+		const html: string = renderMarkdown(content);
+		const mergedClassName: string = className
+			? `${baseClassName} ${className}`
+			: baseClassName;
+
+		return { html, mergedClassName };
+	}, [className, content]);
 
 	return (
 		<div
-			className={
-				className ? `${baseClassName} ${className}` : baseClassName
-			}
+			className={mergedClassName}
 			dangerouslySetInnerHTML={{ __html: html }}
 		/>
 	);

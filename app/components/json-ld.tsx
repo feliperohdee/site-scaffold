@@ -1,13 +1,18 @@
 import _ from 'lodash';
+import { useMemo } from 'react';
 
 import safeJsonStringify from '@/libs/safe-json';
 
 const JsonLd = ({ data }: { data: unknown }) => {
+	const items = useMemo(() => {
+		const items: unknown[] = _.isArray(data) ? data : [data];
+
+		return items;
+	}, [data]);
+
 	if (_.isNil(data)) {
 		return null;
 	}
-
-	const items = _.isArray(data) ? data : [data];
 
 	return (
 		<>
