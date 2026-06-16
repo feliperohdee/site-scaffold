@@ -1,6 +1,6 @@
 import _ from 'lodash';
-import path from 'path';
 import { env, waitUntil } from 'cloudflare:workers';
+import path from 'path';
 
 import {
 	CACHE_CREATED_AT_HEADER,

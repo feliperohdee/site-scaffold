@@ -6,15 +6,15 @@ import ContextStorage from '@/worker/context-storage';
 import createRouter from '@/libs/router';
 import type { Pseo } from '@/libs/pseo/types';
 import type { Route } from '@/libs/router';
+import {
+	__resetForTests as resetSitemap,
+	getContributors
+} from '@/libs/sitemap';
 import registerCollections, {
 	buildItemCacheVersion,
 	buildItemPath,
 	registerCollection
 } from '@/libs/pseo/register';
-import {
-	__resetForTests as resetSitemap,
-	getContributors
-} from '@/libs/sitemap';
 
 type City = {
 	name: string;

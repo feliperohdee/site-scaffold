@@ -1,5 +1,5 @@
-import inferLang from '@/libs/lang/infer';
 import { isLang } from '@/libs/lang/types';
+import inferLang from '@/libs/lang/infer';
 import type { Lang } from '@/libs/lang/types';
 
 const resolveLang = (input: {

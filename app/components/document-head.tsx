@@ -1,5 +1,4 @@
 import JsonLd from '@/app/components/json-ld';
-
 import type { Route } from '@/libs/router';
 
 // Renders SEO tags + JSON-LD + robots-noindex declared by the route handler.

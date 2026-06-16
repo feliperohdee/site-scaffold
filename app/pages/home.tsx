@@ -1,8 +1,8 @@
 import { useState } from 'react';
 
+import { SITE_NAME } from '@/constants';
 import ClientOnly from '@/libs/client-only';
 import Now from '@/app/components/now';
-import { SITE_NAME } from '@/constants';
 
 const Home = () => {
 	const [count, setCount] = useState(0);

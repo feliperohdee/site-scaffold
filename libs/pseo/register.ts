@@ -1,8 +1,7 @@
 import _ from 'lodash';
 
-import context from '@/worker/context';
 import { registerSitemap } from '@/libs/sitemap';
-
+import context from '@/worker/context';
 import type { Pseo } from '@/libs/pseo/types';
 import type { Route } from '@/libs/router';
 

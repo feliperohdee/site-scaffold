@@ -1,7 +1,7 @@
-import ContextStorage from '@/worker/context-storage';
-import context from '@/worker/context';
-import renderHtml from '@/worker/render';
 import { handleSitemapRequest } from '@/libs/sitemap';
+import context from '@/worker/context';
+import ContextStorage from '@/worker/context-storage';
+import renderHtml from '@/worker/render';
 
 const handler = {
 	async fetch(req: Request): Promise<Response> {

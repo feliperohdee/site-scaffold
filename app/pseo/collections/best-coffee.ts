@@ -2,7 +2,6 @@ import _ from 'lodash';
 
 import bestCoffeeHub from '@/app/pseo/pages/best-coffee-hub';
 import bestCoffeeItem from '@/app/pseo/pages/best-coffee-item';
-
 import type { Pseo } from '@/libs/pseo/types';
 
 // ─── pSEO collection — worked example ──────────────────────────────────────

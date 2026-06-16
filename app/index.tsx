@@ -1,11 +1,9 @@
-import '@/app/styles/index.css';
-
-import { StrictMode } from 'react';
 import { hydrateRoot } from 'react-dom/client';
+import { StrictMode } from 'react';
 
+import '@/app/styles/index.css';
 import Document from '@/app/document';
 import pages from '@/libs/discover-pages';
-
 import type { Route } from '@/libs/router';
 
 const emptyHydration: Route.Hydration = {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import ContextStorage from '@/worker/context-storage';
 import context from '@/worker/context';
+import ContextStorage from '@/worker/context-storage';
 
 const buildStorage = (url = 'https://example.com/') => {
 	return new ContextStorage({ request: new Request(url) });

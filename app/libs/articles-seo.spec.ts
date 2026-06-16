@@ -2,6 +2,7 @@ import _ from 'lodash';
 import { describe, expect, it } from 'vitest';
 
 import { SITE_NAME } from '@/constants';
+import type { Article } from '@/app/libs/articles';
 import {
 	articleCacheScope,
 	articleIndexable,
@@ -12,8 +13,6 @@ import {
 	articleSitemapContributor,
 	ARTICLES_VERSION
 } from '@/app/libs/articles-seo';
-
-import type { Article } from '@/app/libs/articles';
 
 const article: Article = {
 	content: 'Body of the seed article.',

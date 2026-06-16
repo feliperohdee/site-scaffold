@@ -1,4 +1,5 @@
 import globals from 'globals';
+import imports from '@feliperohdee/eslint-plugin-imports';
 import js from '@eslint/js';
 import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
@@ -15,10 +16,12 @@ export default tseslint.config(
 			globals: globals.browser
 		},
 		plugins: {
+			'@feliperohdee/imports': imports,
 			'react-hooks': reactHooks
 		},
 		rules: {
 			...reactHooks.configs.recommended.rules,
+			'@feliperohdee/imports/sort-imports-by-line': 'error',
 			'@typescript-eslint/ban-ts-comment': 'off',
 			'@typescript-eslint/no-empty-object-type': 'off',
 			'@typescript-eslint/no-explicit-any': 'off',

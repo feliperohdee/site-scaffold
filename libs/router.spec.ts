@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import createRouter, { Route } from '@/libs/router';
 import { clientOnly } from '@/libs/client-only';
+import createRouter, { Route } from '@/libs/router';
 
 const HomeComponent: Route.PageComponent = () => {
 	return null;
