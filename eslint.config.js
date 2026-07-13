@@ -1,4 +1,5 @@
 import globals from 'globals';
+import eslintReact from '@eslint-react/eslint-plugin';
 import imports from '@feliperohdee/eslint-plugin-imports';
 import js from '@eslint/js';
 import reactHooks from 'eslint-plugin-react-hooks';
@@ -13,14 +14,20 @@ export default tseslint.config(
 		files: ['**/*.{ts,tsx}'],
 		languageOptions: {
 			ecmaVersion: 2020,
-			globals: globals.browser
+			globals: globals.browser,
+			parserOptions: {
+				project: true,
+				tsconfigRootDir: import.meta.dirname
+			}
 		},
 		plugins: {
+			'@eslint-react': eslintReact,
 			'@feliperohdee/imports': imports,
 			'react-hooks': reactHooks
 		},
 		rules: {
 			...reactHooks.configs.recommended.rules,
+			'@eslint-react/no-leaked-conditional-rendering': 'error',
 			'@feliperohdee/imports/sort-imports-by-line': 'error',
 			'@typescript-eslint/ban-ts-comment': 'off',
 			'@typescript-eslint/no-empty-object-type': 'off',
