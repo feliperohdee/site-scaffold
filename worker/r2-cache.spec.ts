@@ -1,3 +1,4 @@
+import _ from 'lodash';
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest';
 import { env } from 'cloudflare:workers';
 
@@ -34,8 +35,12 @@ describe('@/worker/r2-cache', () => {
 		});
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
 		vi.restoreAllMocks();
+
+		const { objects } = await env.CACHE.list();
+
+		await env.CACHE.delete(_.map(objects, 'key'));
 	});
 
 	describe('key', () => {

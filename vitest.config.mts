@@ -1,22 +1,30 @@
-import { defineWorkersConfig } from '@cloudflare/vitest-pool-workers/config';
+import { cloudflareTest } from '@cloudflare/vitest-pool-workers';
+import { defineConfig } from 'vitest/config';
 
-export default defineWorkersConfig({
+const rootDir = import.meta.dirname;
+
+// Suppress Wrangler's environment banner in test output.
+process.env.WRANGLER_LOG ??= 'warn';
+
+export default defineConfig({
 	define: {
 		__BUILD_TIME__: JSON.stringify('test')
 	},
+	plugins: [
+		cloudflareTest({
+			// Keep remote bindings local; tests must not reach real services.
+			remoteBindings: false,
+			// Disable verbose workerd logs for handled promise rejections.
+			verbose: false,
+			wrangler: { configPath: './wrangler.test.jsonc' }
+		})
+	],
 	resolve: {
 		alias: {
-			'@': __dirname
+			'@': rootDir
 		}
 	},
 	test: {
-		poolOptions: {
-			workers: {
-				singleWorker: true,
-				wrangler: {
-					configPath: './wrangler.test.jsonc'
-				}
-			}
-		}
+		fileParallelism: false
 	}
 });
